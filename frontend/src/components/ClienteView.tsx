@@ -156,6 +156,14 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
     if (servicio) cargarSlots(servicio, f);
   }
 
+  // Vuelve a un paso anterior del flujo desde el stepper (limpiando las selecciones posteriores).
+  function irAPaso(n: number) {
+    if (n <= 1) { setNegocio(null); setPeluquero(null); setServicio(null); setSlots([]); setSlot(null); }
+    else if (n === 2) { setPeluquero(null); setServicio(null); setSlots([]); setSlot(null); }
+    else if (n === 3) { setServicio(null); setSlots([]); setSlot(null); }
+    else if (n === 4) { setSlot(null); }
+  }
+
   async function reservar() {
     if (!peluquero || !servicio || !slot) return;
     setError("");
@@ -188,11 +196,27 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
   return (
     <div>
       <div className="stepper">
-        <span className={`step ${paso === 1 ? "active" : paso > 1 ? "done" : ""}`}>{t("step.business")}</span>
-        <span className={`step ${paso === 2 ? "active" : paso > 2 ? "done" : ""}`}>{t("step.professional")}</span>
-        <span className={`step ${paso === 3 ? "active" : paso > 3 ? "done" : ""}`}>{t("step.service")}</span>
-        <span className={`step ${paso === 4 ? "active" : paso > 4 ? "done" : ""}`}>{t("step.time")}</span>
-        <span className={`step ${paso === 5 ? "active" : ""}`}>{t("step.payment")}</span>
+        {[
+          t("step.business"),
+          t("step.professional"),
+          t("step.service"),
+          t("step.time"),
+          t("step.payment"),
+        ].map((label, i) => {
+          const n = i + 1;
+          return (
+            <button
+              key={n}
+              type="button"
+              className={`step ${paso === n ? "active" : paso > n ? "done" : ""}`}
+              disabled={n >= paso}
+              onClick={() => irAPaso(n)}
+              title={n < paso ? t("common.change") : undefined}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Paso 1: marketplace (hero + categorías + tarjetas) */}

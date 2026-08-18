@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, type Negocio } from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
+import { MapaUbicacion } from "./MapaUbicacion";
 
 interface Miembro {
   id: number;
@@ -86,11 +87,11 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
         <label>{t("own.address")}</label>
         <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
         <label>{t("own.locationLabel")}</label>
-        <div className="row">
-          <button type="button" className={coords ? "selected" : ""} onClick={usarUbicacion} disabled={ubicando}>
-            📍 {ubicando ? t("own.locating") : coords ? t("own.locationSet") : t("own.useLocation")}
+        <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
+        <div className="row" style={{ marginTop: 6 }}>
+          <button type="button" className="ghost small" onClick={usarUbicacion} disabled={ubicando}>
+            📍 {ubicando ? t("own.locating") : t("own.useLocationOpt")}
           </button>
-          {coords && <span className="muted small">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</span>}
         </div>
         <label>{t("own.phone")}</label>
         <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
@@ -408,9 +409,12 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
       <p className="muted small">{t("own.locationHelp")}</p>
       <label>{t("own.address")}</label>
       <input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
-      <div className="row" style={{ marginTop: 10 }}>
-        <button className={coords ? "selected" : ""} onClick={usarUbicacion} disabled={ubicando}>
-          📍 {ubicando ? t("own.locating") : coords ? t("own.locationSet") : t("own.useLocation")}
+
+      <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
+
+      <div className="row" style={{ marginTop: 6 }}>
+        <button type="button" className="ghost small" onClick={usarUbicacion} disabled={ubicando}>
+          📍 {ubicando ? t("own.locating") : t("own.useLocationOpt")}
         </button>
         {coords && <a href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`} target="_blank" rel="noreferrer">{t("mkt.viewMap")}</a>}
       </div>

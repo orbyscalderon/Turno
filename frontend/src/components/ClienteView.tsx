@@ -96,23 +96,27 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
     );
   }
 
-  // Cargar negocios (con búsqueda + ubicación + categoría + cercanía).
+  // Busca negocios con los filtros actuales (búsqueda + ubicación + categoría + cercanía).
+  function buscarNegocios() {
+    const params = new URLSearchParams();
+    if (busqueda) params.set("q", busqueda);
+    if (ubicacion) params.set("ubicacion", ubicacion);
+    if (categoria) params.set("categoria", categoria);
+    if (coords) { params.set("lat", String(coords.lat)); params.set("lng", String(coords.lng)); }
+    const qs = params.toString();
+    setCargandoNeg(true);
+    return api
+      .get<{ negocios: Negocio[] }>(`/negocios${qs ? `?${qs}` : ""}`)
+      .then((r) => setNegocios(r.negocios))
+      .catch(() => {})
+      .finally(() => setCargandoNeg(false));
+  }
+
+  // Búsqueda reactiva (con debounce) al cambiar cualquier filtro.
   useEffect(() => {
-    const t = setTimeout(() => {
-      const params = new URLSearchParams();
-      if (busqueda) params.set("q", busqueda);
-      if (ubicacion) params.set("ubicacion", ubicacion);
-      if (categoria) params.set("categoria", categoria);
-      if (coords) { params.set("lat", String(coords.lat)); params.set("lng", String(coords.lng)); }
-      const qs = params.toString();
-      setCargandoNeg(true);
-      api
-        .get<{ negocios: Negocio[] }>(`/negocios${qs ? `?${qs}` : ""}`)
-        .then((r) => setNegocios(r.negocios))
-        .catch(() => {})
-        .finally(() => setCargandoNeg(false));
-    }, 250);
+    const t = setTimeout(buscarNegocios, 250);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, ubicacion, categoria, coords]);
 
   async function elegirNegocio(n: Negocio) {
@@ -216,7 +220,7 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
                 <span className="seg-ico">📅</span>
                 <span className="seg-btn placeholder">{t("mkt.segWhen")}</span>
               </div>
-              <button className="primary go">{t("mkt.search")}</button>
+              <button className="primary go" onClick={() => buscarNegocios()}>{t("mkt.search")}</button>
             </div>
             <div className="mkt-trust">
               <span>⭐ {t("mkt.trust1")}</span>

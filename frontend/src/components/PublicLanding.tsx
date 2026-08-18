@@ -46,21 +46,25 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
     );
   }
 
+  // Busca negocios con los filtros actuales.
+  function buscarNegocios() {
+    const params = new URLSearchParams();
+    if (busqueda) params.set("q", busqueda);
+    if (ubicacion) params.set("ubicacion", ubicacion);
+    if (categoria) params.set("categoria", categoria);
+    if (coords) { params.set("lat", String(coords.lat)); params.set("lng", String(coords.lng)); }
+    const qs = params.toString();
+    setCargando(true);
+    return api.get<{ negocios: Negocio[] }>(`/negocios${qs ? `?${qs}` : ""}`)
+      .then((r) => setNegocios(r.negocios))
+      .catch(() => {})
+      .finally(() => setCargando(false));
+  }
+
   useEffect(() => {
-    const to = setTimeout(() => {
-      const params = new URLSearchParams();
-      if (busqueda) params.set("q", busqueda);
-      if (ubicacion) params.set("ubicacion", ubicacion);
-      if (categoria) params.set("categoria", categoria);
-      if (coords) { params.set("lat", String(coords.lat)); params.set("lng", String(coords.lng)); }
-      const qs = params.toString();
-      setCargando(true);
-      api.get<{ negocios: Negocio[] }>(`/negocios${qs ? `?${qs}` : ""}`)
-        .then((r) => setNegocios(r.negocios))
-        .catch(() => {})
-        .finally(() => setCargando(false));
-    }, 250);
+    const to = setTimeout(buscarNegocios, 250);
     return () => clearTimeout(to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, ubicacion, categoria, coords]);
 
   if (sel) return <DetalleNegocio negocio={sel} onBack={() => setSel(null)} onReservar={onReservar} />;
@@ -90,7 +94,7 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
             <span className="seg-ico">📅</span>
             <span className="seg-btn placeholder">{t("mkt.segWhen")}</span>
           </div>
-          <button className="primary go">{t("mkt.search")}</button>
+          <button className="primary go" onClick={() => buscarNegocios()}>{t("mkt.search")}</button>
         </div>
 
         {stats && (

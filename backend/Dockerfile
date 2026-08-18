@@ -1,6 +1,8 @@
 # Imagen de producción del backend de Turno.
-FROM node:22-alpine AS build
+# Debian slim (no alpine): Prisma detecta OpenSSL 3 correctamente y carga su motor sin problemas.
+FROM node:22-slim AS build
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm ci
 COPY prisma ./prisma
@@ -9,14 +11,15 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/dist ./dist
 COPY prisma ./prisma
 EXPOSE 4000
-# Aplica migraciones y arranca (en producción considera un job de migración aparte).
+# Aplica migraciones y arranca.
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

@@ -224,6 +224,13 @@ negociosRouter.post(
         suscripcionHasta: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 días de prueba
       },
     });
+
+    // El creador queda como primer profesional aceptado de su propio negocio.
+    // Así un negocio de una sola persona es reservable sin necesitar una segunda cuenta.
+    await prisma.peluqueroEquipo.create({
+      data: { negocioId: negocio.id, usuarioId: duenoId, estadoAprobacion: "aceptado" },
+    });
+
     res.status(201).json({ negocio });
   }),
 );

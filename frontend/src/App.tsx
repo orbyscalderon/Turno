@@ -48,8 +48,8 @@ export default function App() {
   const path = window.location.pathname;
   // Vista para invitados: "landing" (marketplace público) o "login".
   const [authView, setAuthView] = useState<"landing" | "login">("landing");
-  // Un rol no-cliente (admin/profesional/superadmin) puede abrir la vista de cliente sin cerrar sesión.
-  const [verComoCliente, setVerComoCliente] = useState(false);
+  // El superadmin puede alternar entre su panel, gestionar su propio negocio, o ver como cliente.
+  const [modoSuper, setModoSuper] = useState<"panel" | "negocio" | "cliente">("panel");
 
   // Ruta pública: restablecer contraseña con token (/reset/:token).
   const resetMatch = path.match(/^\/reset\/(.+)$/);
@@ -131,9 +131,11 @@ export default function App() {
           <span className="badge">{t(`role.${usuario.rol}` as TKey)}</span>
           <span className="small muted">{usuario.nombre}</span>
           {usuario.rol === "superadmin" && (
-            <button className="ghost small" onClick={() => setVerComoCliente((v) => !v)}>
-              {verComoCliente ? t("nav.backToPanel") : t("nav.viewAsClient")}
-            </button>
+            <div className="lang-toggle">
+              <button className={modoSuper === "panel" ? "on" : ""} onClick={() => setModoSuper("panel")}>{t("nav.modePanel")}</button>
+              <button className={modoSuper === "negocio" ? "on" : ""} onClick={() => setModoSuper("negocio")}>{t("nav.modeBusiness")}</button>
+              <button className={modoSuper === "cliente" ? "on" : ""} onClick={() => setModoSuper("cliente")}>{t("nav.modeClient")}</button>
+            </div>
           )}
           <button className="ghost small" onClick={logout}>{t("nav.logout")}</button>
         </div>
@@ -141,15 +143,13 @@ export default function App() {
 
       <AccountBar />
 
-      {verComoCliente && usuario.rol === "superadmin" ? (
-        <ClienteView />
-      ) : (
-        <>
-          {usuario.rol === "cliente" && <ClienteView />}
-          {usuario.rol === "peluquero" && <PeluqueroView />}
-          {usuario.rol === "admin_negocio" && <AdminView />}
-          {usuario.rol === "superadmin" && <SuperadminView />}
-        </>
+      {usuario.rol === "cliente" && <ClienteView />}
+      {usuario.rol === "peluquero" && <PeluqueroView />}
+      {usuario.rol === "admin_negocio" && <AdminView />}
+      {usuario.rol === "superadmin" && (
+        modoSuper === "panel" ? <SuperadminView /> :
+        modoSuper === "cliente" ? <ClienteView /> :
+        <><AdminView /><PeluqueroView /></>
       )}
 
       <Footer />

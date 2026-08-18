@@ -1,0 +1,49 @@
+# Stack completo de Turno: PostgreSQL + backend + frontend.
+# Uso: docker compose -f docker-compose.full.yml up --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: turno
+    volumes:
+      - turno_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/turno?schema=public"
+      NODE_ENV: production
+      PORT: 4000
+      JWT_SECRET: "cambia-esto-en-produccion-por-un-secreto-largo"
+      FRONTEND_ORIGIN: "http://localhost:8080"
+      APP_URL: "http://localhost:8080"
+      PAYMENT_PROVIDER: mock
+      EMAIL_TRANSPORT: dev
+    volumes:
+      - turno_uploads:/app/uploads
+    expose:
+      - "4000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  turno_pgdata:
+  turno_uploads:

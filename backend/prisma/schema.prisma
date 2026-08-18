@@ -1,0 +1,309 @@
+// Esquema de datos de Turno
+// PostgreSQL elegido por soporte robusto de transacciones, locks (SELECT ... FOR UPDATE)
+// y constraints para garantizar la ausencia de dobles reservas y el límite de 5 peluqueros.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // App (runtime): conexión pooled (Supabase PgBouncer, puerto 6543).
+  url       = env("DATABASE_URL")
+  // Migraciones: conexión directa (puerto 5432). En local es igual a DATABASE_URL.
+  directUrl = env("DIRECT_URL")
+}
+
+enum Rol {
+  superadmin
+  admin_negocio
+  peluquero
+  cliente
+}
+
+enum EstadoSuscripcion {
+  activo
+  vencido
+  prueba
+}
+
+enum EstadoAprobacion {
+  pendiente
+  aceptado
+  rechazado
+}
+
+enum EstadoPago {
+  pendiente
+  pagado
+  reembolsado
+}
+
+enum EstadoCita {
+  confirmada
+  cancelada
+  no_asistio
+  completada
+}
+
+enum DiaSemana {
+  lunes
+  martes
+  miercoles
+  jueves
+  viernes
+  sabado
+  domingo
+}
+
+model Usuario {
+  id                Int       @id @default(autoincrement())
+  nombre            String    @db.VarChar(100)
+  telefono          String    @db.VarChar(20)
+  email             String    @unique @db.VarChar(150)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  rol               Rol
+  fotoUrl           String?   @map("foto_url") @db.VarChar(255)
+  emailVerificadoEn DateTime? @map("email_verificado_en")
+  bloqueado         Boolean   @default(false) // baneo por el superadmin
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relaciones
+  negociosPropios  Negocio[]           @relation("DuenoNegocio")
+  membresias       PeluqueroEquipo[]
+  servicios        Servicio[]
+  disponibilidades Disponibilidad[]
+  bloqueosAgenda   Bloqueo[]
+  reservasComoCliente   Reservacion[]  @relation("ClienteReserva")
+  reservasComoPeluquero Reservacion[]  @relation("PeluqueroReserva")
+  tokensReset      PasswordResetToken[]
+  tokensEmail      EmailVerificationToken[]
+  refreshTokens    RefreshToken[]
+  resenas          Resena[]
+
+  @@map("usuarios")
+}
+
+model Negocio {
+  id                String            @id @default(cuid())
+  nombreComercial   String            @map("nombre_comercial") @db.VarChar(150)
+  slug              String            @unique
+  // Categoría del negocio (barbería, estética, spa, uñas, etc.). Plataforma multi-rubro.
+  categoria         String            @default("barberia") @db.VarChar(40)
+  direccion         String            @db.Text
+  telefonoContacto  String            @map("telefono_contacto") @db.VarChar(20)
+  logoUrl           String?           @map("logo_url") @db.VarChar(255)
+  coverUrl          String?           @map("cover_url") @db.VarChar(255)
+  timezone          String            @default("Europe/Madrid") @db.VarChar(64)
+  // Geolocalización para búsqueda por cercanía.
+  lat               Float?
+  lng               Float?
+  // Reputación agregada (se recalcula al crear reseñas).
+  ratingPromedio    Float             @default(0) @map("rating_promedio")
+  ratingConteo      Int               @default(0) @map("rating_conteo")
+  estadoSuscripcion EstadoSuscripcion @default(prueba) @map("estado_suscripcion")
+  plan              String?           @db.VarChar(20) // basico | pro
+  intervaloPlan     String?           @map("intervalo_plan") @db.VarChar(10) // mensual | anual
+  suscripcionHasta  DateTime?         @map("suscripcion_hasta")
+  // IDs de la pasarela para el cobro mensual del SaaS.
+  stripeCustomerId     String?        @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String?        @map("stripe_subscription_id") @db.VarChar(255)
+  // Stripe Connect: cuenta del negocio para recibir su parte de la fianza.
+  stripeConnectAccountId String?      @map("stripe_connect_account_id") @db.VarChar(255)
+  cobrosActivos          Boolean      @default(false) @map("cobros_activos") // onboarding completo
+  payoutInterval         String?      @map("payout_interval") @db.VarChar(10) // daily|weekly|monthly (null = por defecto)
+  payoutAnchor           Int?         @map("payout_anchor") // día del mes (monthly)
+  duenoId           Int               @map("dueno_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  dueno        Usuario             @relation("DuenoNegocio", fields: [duenoId], references: [id], onDelete: Cascade)
+  equipo       PeluqueroEquipo[]
+  invitaciones InvitacionNegocio[]
+  resenas      Resena[]
+
+  @@index([estadoSuscripcion])
+  @@map("negocios")
+}
+
+// Link de invitación único para que un peluquero se una a un negocio sin buscarlo.
+model InvitacionNegocio {
+  id        Int       @id @default(autoincrement())
+  negocioId String    @map("negocio_id")
+  token     String    @unique @db.VarChar(64)
+  expiraEn  DateTime  @map("expira_en")
+  usadaPor  Int?      @map("usada_por") // usuarioId del peluquero que la usó
+  usadaEn   DateTime? @map("usada_en")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+
+  @@index([negocioId])
+  @@map("invitaciones_negocio")
+}
+
+// Token para restablecer contraseña (se envía por email; aquí se registra en consola).
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  token     String   @unique @db.VarChar(64)
+  expiraEn  DateTime @map("expira_en")
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model PeluqueroEquipo {
+  id               Int              @id @default(autoincrement())
+  negocioId        String           @map("negocio_id")
+  usuarioId        Int              @map("usuario_id")
+  estadoAprobacion EstadoAprobacion @default(pendiente) @map("estado_aprobacion")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([negocioId, usuarioId], name: "unique_peluquero_negocio")
+  @@index([negocioId, estadoAprobacion])
+  @@map("peluqueros_equipos")
+}
+
+model Servicio {
+  id              Int      @id @default(autoincrement())
+  peluqueroId     Int      @map("peluquero_id")
+  nombreServicio  String   @map("nombre_servicio") @db.VarChar(100)
+  precio          Decimal  @db.Decimal(10, 2)
+  moneda          String   @default("USD") @db.VarChar(3)
+  duracionMinutos Int      @map("duracion_minutos")
+  imagenUrl       String?  @map("imagen_url") @db.VarChar(255)
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  peluquero    Usuario       @relation(fields: [peluqueroId], references: [id], onDelete: Cascade)
+  reservaciones Reservacion[]
+
+  @@index([peluqueroId])
+  @@map("servicios")
+}
+
+// Disponibilidad horaria individual por peluquero (rangos por día de la semana)
+model Disponibilidad {
+  id          Int       @id @default(autoincrement())
+  peluqueroId Int       @map("peluquero_id")
+  dia         DiaSemana
+  horaInicio  String    @map("hora_inicio") @db.VarChar(5) // "HH:MM"
+  horaFin     String    @map("hora_fin") @db.VarChar(5)    // "HH:MM"
+
+  peluquero Usuario @relation(fields: [peluqueroId], references: [id], onDelete: Cascade)
+
+  @@index([peluqueroId, dia])
+  @@map("disponibilidades")
+}
+
+model Reservacion {
+  id                  Int        @id @default(autoincrement())
+  clienteId           Int        @map("cliente_id")
+  peluqueroId         Int        @map("peluquero_id")
+  servicioId          Int        @map("servicio_id")
+  fecha               DateTime   @db.Date
+  horaInicio          String     @map("hora_inicio") @db.VarChar(5) // "HH:MM"
+  horaFin             String     @map("hora_fin") @db.VarChar(5)    // "HH:MM"
+  pagoReservaStatus   EstadoPago @default(pendiente) @map("pago_reserva_status")
+  estadoCita          EstadoCita @default(confirmada) @map("estado_cita")
+  idTransaccionPasarela String?  @map("id_transaccion_pasarela") @db.VarChar(255)
+  idReembolsoPasarela String?    @map("id_reembolso_pasarela") @db.VarChar(255)
+  // Token corto aleatorio para validar la cita en el local (NO usar el id secuencial)
+  codigoValidacion    String     @unique @map("codigo_validacion") @db.VarChar(12)
+  // Vencimiento del hold del slot si el pago no se confirma (lo libera el job de expiración).
+  expiraPagoEn        DateTime?  @map("expira_pago_en")
+  // Marca de recordatorio enviado (evita duplicados del job de recordatorios).
+  recordatorioEnviadoEn DateTime? @map("recordatorio_enviado_en")
+  createdAt           DateTime   @default(now()) @map("created_at")
+
+  cliente   Usuario  @relation("ClienteReserva", fields: [clienteId], references: [id])
+  peluquero Usuario  @relation("PeluqueroReserva", fields: [peluqueroId], references: [id])
+  servicio  Servicio @relation(fields: [servicioId], references: [id])
+  resena    Resena?
+
+  @@index([peluqueroId, fecha, estadoCita])
+  @@index([pagoReservaStatus, expiraPagoEn])
+  @@map("reservaciones")
+}
+
+// Bloqueo de agenda del profesional (descanso, vacaciones, ausencia).
+// Si horaInicio/horaFin son null, bloquea todo el día.
+model Bloqueo {
+  id          Int      @id @default(autoincrement())
+  peluqueroId Int      @map("peluquero_id")
+  fecha       DateTime @db.Date
+  horaInicio  String?  @map("hora_inicio") @db.VarChar(5)
+  horaFin     String?  @map("hora_fin") @db.VarChar(5)
+  motivo      String?  @db.VarChar(120)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  peluquero Usuario @relation(fields: [peluqueroId], references: [id], onDelete: Cascade)
+
+  @@index([peluqueroId, fecha])
+  @@map("bloqueos")
+}
+
+// Reseña de una reserva completada (1 por reserva).
+model Resena {
+  id            Int      @id @default(autoincrement())
+  reservacionId Int      @unique @map("reservacion_id")
+  clienteId     Int      @map("cliente_id")
+  peluqueroId   Int      @map("peluquero_id")
+  negocioId     String   @map("negocio_id")
+  puntuacion    Int      // 1..5
+  comentario    String?  @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  reservacion Reservacion @relation(fields: [reservacionId], references: [id], onDelete: Cascade)
+  cliente     Usuario     @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  negocio     Negocio     @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+
+  @@index([peluqueroId])
+  @@index([negocioId])
+  @@map("resenas")
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  token     String   @unique @db.VarChar(64)
+  expiraEn  DateTime @map("expira_en")
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  token     String   @unique @db.VarChar(128)
+  expiraEn  DateTime @map("expira_en")
+  revocado  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("refresh_tokens")
+}
+
+// Registro de auditoría para acciones sensibles (baneos, cambios de suscripción, reembolsos).
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  actorId   Int?     @map("actor_id") // usuario que ejecutó la acción
+  accion    String   @db.VarChar(80)
+  detalle   String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([accion])
+  @@map("audit_logs")
+}

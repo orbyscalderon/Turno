@@ -1,0 +1,36 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Builds
+dist/
+**/dist/
+.expo/
+**/.expo/
+
+# Secretos y entorno (NUNCA subir)
+.env
+**/.env
+*.env
+!*.env.example
+
+# Subidas locales
+backend/uploads/*
+!backend/uploads/.gitignore
+
+# Logs
+*.log
+**/*.log
+
+# Tests
+test-results/
+playwright-report/
+.playwright/
+**/test-results/
+
+# Prisma
+backend/prisma/*.db
+
+# Sistema
+.DS_Store
+Thumbs.db

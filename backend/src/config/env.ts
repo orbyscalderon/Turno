@@ -66,6 +66,8 @@ const schema = z.object({
   // Empresa operadora (para pies de email). CAMBIAR por los datos reales.
   COMPANY_NAME: z.string().default("OC HOLDING GROUP LLC"),
   COMPANY_SUPPORT_EMAIL: z.string().default("soporte@turno.app"),
+  // Login con Google (Google Identity Services). Vacío = botón de Google desactivado.
+  GOOGLE_CLIENT_ID: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -155,4 +157,5 @@ export const env = {
   whatsappLang: e.WHATSAPP_LANG,
   companyName: e.COMPANY_NAME,
   companySupportEmail: e.COMPANY_SUPPORT_EMAIL,
+  googleClientId: e.GOOGLE_CLIENT_ID,
 } as const;

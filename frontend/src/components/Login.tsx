@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useAuth } from "../auth";
 import { api, ApiError } from "../api";
 import { useT } from "../i18n";
+import { GoogleButton } from "./GoogleButton";
 
 export function Login() {
-  const { login, registro } = useAuth();
+  const { login, loginGoogle, registro } = useAuth();
   const { t } = useT();
   const [modo, setModo] = useState<"login" | "registro" | "olvide">("login");
   const [error, setError] = useState("");
@@ -36,6 +37,18 @@ export function Login() {
         const r = await api.post<{ mensaje: string }>("/auth/password/olvide", { email: form.email });
         setAviso(r.mensaje);
       }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("common.error"));
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function onGoogle(credential: string) {
+    setError(""); setAviso("");
+    setCargando(true);
+    try {
+      await loginGoogle(credential);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("common.error"));
     } finally {
@@ -101,6 +114,10 @@ export function Login() {
               {cargando ? "..." : modo === "login" ? t("login.enter") : modo === "registro" ? t("login.doRegister") : t("login.sendLink")}
             </button>
           </form>
+
+          {modo !== "olvide" && (
+            <GoogleButton onCredential={onGoogle} texto={modo === "registro" ? "signup_with" : "continue_with"} />
+          )}
 
           {modo === "login" && (
             <p className="small muted" style={{ marginTop: 14 }}>

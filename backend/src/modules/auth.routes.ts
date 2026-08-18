@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { prisma } from "../lib/prisma.js";
 import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
 import { BadRequest, Forbidden, Unauthorized } from "../lib/errors.js";
@@ -79,6 +80,69 @@ authRouter.post(
     const ok = await verifyPassword(password, usuario.passwordHash);
     if (!ok) throw Unauthorized("Credenciales inválidas");
     if (usuario.bloqueado) throw Forbidden("Cuenta suspendida. Contacta con soporte.");
+
+    const sesion = await emitirSesion(usuario);
+    res.json({
+      usuario: {
+        id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
+        emailVerificadoEn: usuario.emailVerificadoEn,
+      },
+      ...sesion,
+    });
+  }),
+);
+
+// ---------- Iniciar sesión / registrarse con Google (Google Identity Services) ----------
+// El frontend obtiene un "credential" (ID token JWT) del botón de Google y lo manda aquí.
+// Verificamos la firma con Google, buscamos al usuario por email y emitimos nuestra sesión.
+// Si el email no existe, se crea una cuenta de cliente ya verificada (self-signup).
+const googleSchema = z.object({ credential: z.string().min(20) });
+
+authRouter.post(
+  "/google",
+  asyncHandler(async (req, res) => {
+    if (!env.googleClientId) {
+      throw BadRequest("El acceso con Google no está configurado", "GOOGLE_NO_CONFIGURADO");
+    }
+    const { credential } = googleSchema.parse(req.body);
+
+    const cliente = new OAuth2Client(env.googleClientId);
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await cliente.verifyIdToken({ idToken: credential, audience: env.googleClientId });
+      payload = ticket.getPayload();
+    } catch {
+      throw Unauthorized("No se pudo verificar el token de Google");
+    }
+
+    const email = payload?.email?.toLowerCase();
+    if (!email || payload?.email_verified === false) {
+      throw Unauthorized("La cuenta de Google no tiene un email verificado");
+    }
+    const nombre = payload?.name?.trim() || email.split("@")[0];
+    const fotoUrl = payload?.picture;
+
+    let usuario = await prisma.usuario.findUnique({ where: { email } });
+
+    if (!usuario) {
+      // Alta nueva vía Google: cliente, ya verificado. Sin contraseña usable (hash aleatorio).
+      usuario = await prisma.usuario.create({
+        data: {
+          nombre,
+          telefono: "",
+          email,
+          passwordHash: await hashPassword(randomBytes(32).toString("hex")),
+          rol: "cliente",
+          fotoUrl: fotoUrl ?? null,
+          emailVerificadoEn: new Date(),
+        },
+      });
+    } else if (usuario.bloqueado) {
+      throw Forbidden("Cuenta suspendida. Contacta con soporte.");
+    } else if (!usuario.fotoUrl && fotoUrl) {
+      // Completa la foto de perfil desde Google si aún no tiene.
+      usuario = await prisma.usuario.update({ where: { id: usuario.id }, data: { fotoUrl } });
+    }
 
     const sesion = await emitirSesion(usuario);
     res.json({

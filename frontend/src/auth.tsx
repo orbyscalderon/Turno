@@ -5,6 +5,7 @@ interface AuthState {
   usuario: Usuario | null;
   cargando: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginGoogle: (credential: string) => Promise<void>;
   registro: (data: RegistroData) => Promise<void>;
   logout: () => void;
   refrescarUsuario: () => Promise<void>;
@@ -43,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(r.usuario);
   }
 
+  async function loginGoogle(credential: string) {
+    const r = await api.post<{ usuario: Usuario; token: string; refreshToken: string }>("/auth/google", { credential });
+    setSession(r.token, r.refreshToken);
+    setUsuario(r.usuario);
+  }
+
   async function registro(data: RegistroData) {
     const r = await api.post<{ usuario: Usuario; token: string; refreshToken: string }>("/auth/registro", data);
     setSession(r.token, r.refreshToken);
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, registro, logout, refrescarUsuario }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, loginGoogle, registro, logout, refrescarUsuario }}>
       {children}
     </AuthContext.Provider>
   );

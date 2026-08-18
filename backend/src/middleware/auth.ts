@@ -32,6 +32,8 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
 export function requireRole(...roles: Rol[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) throw Unauthorized();
+    // El superadmin tiene acceso total (puede operar cualquier vista, incl. "Ver como cliente").
+    if (req.user.rol === "superadmin") return next();
     if (!roles.includes(req.user.rol)) {
       throw Forbidden(`Requiere rol: ${roles.join(" o ")}`);
     }

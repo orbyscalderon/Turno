@@ -7,6 +7,8 @@ const dict = {
   // Genéricos / navegación
   "brand.tagline": { es: "Reservas para barberías, estética, spa, uñas y cualquier negocio de servicios con cita.", en: "Bookings for barbershops, salons, spas, nails and any appointment-based business." },
   "nav.logout": { es: "Salir", en: "Log out" },
+  "nav.viewAsClient": { es: "Ver como cliente", en: "View as client" },
+  "nav.backToPanel": { es: "← Volver al panel", en: "← Back to panel" },
   "common.change": { es: "← Cambiar", en: "← Change" },
   "common.back": { es: "← Volver", en: "← Back" },
   "common.cancel": { es: "Cancelar", en: "Cancel" },

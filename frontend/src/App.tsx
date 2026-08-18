@@ -48,6 +48,8 @@ export default function App() {
   const path = window.location.pathname;
   // Vista para invitados: "landing" (marketplace público) o "login".
   const [authView, setAuthView] = useState<"landing" | "login">("landing");
+  // Un rol no-cliente (admin/profesional/superadmin) puede abrir la vista de cliente sin cerrar sesión.
+  const [verComoCliente, setVerComoCliente] = useState(false);
 
   // Ruta pública: restablecer contraseña con token (/reset/:token).
   const resetMatch = path.match(/^\/reset\/(.+)$/);
@@ -128,16 +130,27 @@ export default function App() {
           <LangToggle />
           <span className="badge">{t(`role.${usuario.rol}` as TKey)}</span>
           <span className="small muted">{usuario.nombre}</span>
+          {usuario.rol === "superadmin" && (
+            <button className="ghost small" onClick={() => setVerComoCliente((v) => !v)}>
+              {verComoCliente ? t("nav.backToPanel") : t("nav.viewAsClient")}
+            </button>
+          )}
           <button className="ghost small" onClick={logout}>{t("nav.logout")}</button>
         </div>
       </Header>
 
       <AccountBar />
 
-      {usuario.rol === "cliente" && <ClienteView />}
-      {usuario.rol === "peluquero" && <PeluqueroView />}
-      {usuario.rol === "admin_negocio" && <AdminView />}
-      {usuario.rol === "superadmin" && <SuperadminView />}
+      {verComoCliente && usuario.rol === "superadmin" ? (
+        <ClienteView />
+      ) : (
+        <>
+          {usuario.rol === "cliente" && <ClienteView />}
+          {usuario.rol === "peluquero" && <PeluqueroView />}
+          {usuario.rol === "admin_negocio" && <AdminView />}
+          {usuario.rol === "superadmin" && <SuperadminView />}
+        </>
+      )}
 
       <Footer />
       <CookieConsent />

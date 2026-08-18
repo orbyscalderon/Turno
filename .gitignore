@@ -8,11 +8,17 @@ dist/
 .expo/
 **/.expo/
 
-# Secretos y entorno (NUNCA subir)
+# Secretos y entorno (NUNCA subir) — cubre .env, .env.production, .env.local, etc.
 .env
+.env.*
 **/.env
+**/.env.*
 *.env
-!*.env.example
+# ...excepto las plantillas de ejemplo
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
 
 # Subidas locales
 backend/uploads/*

@@ -59,7 +59,9 @@ export function AccountBar() {
           <div className="row">
             <button className="ghost small" onClick={exportar}>{t("account.export")}</button>
             <button className="ghost small" onClick={refrescarUsuario}>{t("account.refresh")}</button>
-            <button className="ghost small" style={{ color: "var(--danger)" }} onClick={borrar}>{t("account.delete")}</button>
+            {usuario.rol !== "superadmin" && (
+              <button className="ghost small" style={{ color: "var(--danger)" }} onClick={borrar}>{t("account.delete")}</button>
+            )}
           </div>
         </div>
       )}

@@ -302,6 +302,10 @@ authRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     const id = req.user!.sub;
+    // Un superadmin no puede auto-eliminarse (evita quedarse sin administrador de la plataforma).
+    if (req.user!.rol === "superadmin") {
+      throw Forbidden("Un superadmin no puede eliminar su propia cuenta.");
+    }
     // Las reservas tienen relación Restrict a usuario; se limpian a mano antes de borrar la cuenta.
     // El resto (servicios, disponibilidad, negocios, tokens, membresías) cae por onDelete: Cascade.
     await prisma.$transaction([

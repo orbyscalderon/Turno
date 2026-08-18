@@ -133,11 +133,6 @@ export function Login() {
             </a>
           </p>
         </div>
-
-        <div className="card small muted" style={{ textAlign: "center" }}>
-          <strong>{t("login.demoAccounts")}</strong> (password: <code>password123</code>)
-          <div style={{ marginTop: 4 }}>cliente@turno.app · peluquero1@turno.app · dueno@turno.app · super@turno.app</div>
-        </div>
       </div>
     </div>
   );

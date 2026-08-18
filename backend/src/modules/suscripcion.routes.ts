@@ -6,6 +6,7 @@ import { BadRequest, Forbidden, NotFound } from "../lib/errors.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { stripeClient } from "./pagos.provider.js";
+import { LIMITES_PLAN } from "../lib/planes.js";
 
 export const suscripcionRouter = Router();
 
@@ -38,6 +39,9 @@ suscripcionRouter.get(
           anualUsd: p.anualUsd,
           anualPorMes: Number((p.anualUsd / 12).toFixed(2)),
           ahorroAnualUsd: p.mensualUsd * 12 - p.anualUsd, // 2 meses gratis
+          // Límites del plan (mostrados en las tarjetas).
+          maxNegocios: LIMITES_PLAN[id].negocios,
+          maxPeluqueros: LIMITES_PLAN[id].peluqueros,
         };
       }),
     });

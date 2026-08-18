@@ -306,7 +306,7 @@ function Invitacion({ negocioId }: { negocioId: string }) {
   );
 }
 
-interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; }
+interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; maxNegocios: number; maxPeluqueros: number; }
 interface EstadoSub { estadoSuscripcion: string; plan: string | null; intervaloPlan: string | null; suscripcionHasta: string | null; }
 
 function Suscripcion({ negocioId }: { negocioId: string }) {
@@ -363,6 +363,10 @@ function Suscripcion({ negocioId }: { negocioId: string }) {
                   <div className="muted small">${p.anualPorMes}{t("own.perMonth")} · {t("own.annualBilled")}</div>
                 </div>
               )}
+              <ul className="muted small" style={{ margin: "8px 0 10px", paddingLeft: 18 }}>
+                <li>✅ {p.maxNegocios} {t("plan.businessesLabel")}</li>
+                <li>✅ {t("plan.upTo")} {p.maxPeluqueros} {t("plan.prosLabel")}</li>
+              </ul>
               <button className={activo ? "ghost" : "primary"} style={{ width: "100%", marginTop: 6 }} onClick={() => elegir(p.id)}>
                 {activo ? `✓ ${t("own.currentPlan")}` : t("own.choosePlan")}
               </button>

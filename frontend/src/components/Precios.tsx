@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useT } from "../i18n";
 
-interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; }
+interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; maxNegocios: number; maxPeluqueros: number; }
 
 // Página pública de precios (para atraer negocios antes de registrarse).
 export function Precios({ onRegistrar }: { onRegistrar: () => void }) {
@@ -39,8 +39,9 @@ export function Precios({ onRegistrar }: { onRegistrar: () => void }) {
               </div>
             )}
             <ul className="muted small" style={{ paddingLeft: 18, marginTop: 6 }}>
+              <li>{p.maxNegocios} {t("plan.businessesLabel")}</li>
+              <li>{t("plan.upTo")} {p.maxPeluqueros} {t("plan.prosLabel")}</li>
               <li>Reservas online 24/7</li>
-              <li>Hasta 5 profesionales</li>
               <li>Cobro de fianza + recordatorios</li>
               <li>Analítica y liquidación por empleado</li>
             </ul>

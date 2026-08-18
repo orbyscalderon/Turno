@@ -9,6 +9,7 @@ import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { paginationSchema, paginar, metaPaginacion } from "../lib/pagination.js";
 import { calcularSplitFianza } from "../lib/split.js";
+import { limitePeluqueros, limiteNegocios } from "../lib/planes.js";
 
 export const negociosRouter = Router();
 
@@ -202,6 +203,21 @@ negociosRouter.post(
     const data = crearNegocioSchema.parse(req.body);
     const duenoId = req.user!.sub;
 
+    // Límite de negocios por dueño según su plan (el superadmin queda exento).
+    if (req.user!.rol !== "superadmin") {
+      const propios = await prisma.negocio.findMany({
+        where: { duenoId },
+        select: { plan: true, estadoSuscripcion: true },
+      });
+      const maxNegocios = limiteNegocios(propios);
+      if (propios.length >= maxNegocios) {
+        throw Conflict(
+          `Tu plan permite ${maxNegocios} negocio(s). Sube a Pro para crear más.`,
+          "LIMITE_NEGOCIOS",
+        );
+      }
+    }
+
     // Genera un slug único agregando sufijo si hace falta.
     const base = slugify(data.nombreComercial) || "negocio";
     let slug = base;
@@ -297,6 +313,10 @@ negociosRouter.get(
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
     await assertDueno(req.params.id, req.user!.sub);
+    const negocio = await prisma.negocio.findUnique({
+      where: { id: req.params.id },
+      select: { plan: true, estadoSuscripcion: true },
+    });
     const miembros = await prisma.peluqueroEquipo.findMany({
       where: { negocioId: req.params.id },
       select: {
@@ -308,7 +328,8 @@ negociosRouter.get(
       orderBy: { createdAt: "asc" },
     });
     const activos = miembros.filter((m) => m.estadoAprobacion === "aceptado").length;
-    res.json({ miembros, activos, limite: env.maxPeluqueros });
+    const limite = limitePeluqueros(negocio?.plan, negocio?.estadoSuscripcion ?? "prueba");
+    res.json({ miembros, activos, limite });
   }),
 );
 
@@ -333,6 +354,12 @@ negociosRouter.patch(
       // Serializa las operaciones sobre este negocio bloqueando su fila.
       await tx.$queryRaw`SELECT id FROM negocios WHERE id = ${negocioId} FOR UPDATE`;
 
+      const negocio = await tx.negocio.findUnique({
+        where: { id: negocioId },
+        select: { plan: true, estadoSuscripcion: true },
+      });
+      if (!negocio) throw NotFound("Negocio no encontrado");
+
       const solicitud = await tx.peluqueroEquipo.findFirst({
         where: { id: solicitudId, negocioId },
       });
@@ -345,9 +372,10 @@ negociosRouter.patch(
         const activos = await tx.peluqueroEquipo.count({
           where: { negocioId, estadoAprobacion: "aceptado" },
         });
-        if (activos >= env.maxPeluqueros) {
+        const maxPel = limitePeluqueros(negocio.plan, negocio.estadoSuscripcion);
+        if (activos >= maxPel) {
           throw Conflict(
-            `El negocio ya alcanzó el máximo de ${env.maxPeluqueros} peluqueros activos`,
+            `Tu plan permite ${maxPel} profesionales activos. Sube de plan para aceptar más.`,
             "LIMITE_PELUQUEROS",
           );
         }

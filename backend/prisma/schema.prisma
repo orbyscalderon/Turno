@@ -122,9 +122,58 @@ model Negocio {
   equipo       PeluqueroEquipo[]
   invitaciones InvitacionNegocio[]
   resenas      Resena[]
+  prestamos    Prestamo[]
 
   @@index([estadoSuscripcion])
   @@map("negocios")
+}
+
+// ============================================================
+//  MÓDULO: PRÉSTAMOS (rubro prestamista / financiera)
+// ============================================================
+enum EstadoPrestamo {
+  activo
+  pagado
+  cancelado
+}
+
+model Prestamo {
+  id                 String         @id @default(cuid())
+  negocioId          String         @map("negocio_id")
+  negocio            Negocio        @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  deudorNombre       String         @map("deudor_nombre") @db.VarChar(120)
+  deudorTelefono     String?        @map("deudor_telefono") @db.VarChar(20)
+  capital            Decimal        @db.Decimal(12, 2)
+  tasaInteresMensual Decimal        @map("tasa_interes_mensual") @db.Decimal(6, 3) // % mensual
+  plazoCuotas        Int            @map("plazo_cuotas")
+  frecuencia         String         @default("mensual") @db.VarChar(12) // semanal | quincenal | mensual
+  fechaInicio        DateTime       @map("fecha_inicio")
+  estado             EstadoPrestamo @default(activo)
+  notas              String?        @db.Text
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  cuotas CuotaPrestamo[]
+
+  @@index([negocioId])
+  @@map("prestamos")
+}
+
+model CuotaPrestamo {
+  id               String    @id @default(cuid())
+  prestamoId       String    @map("prestamo_id")
+  prestamo         Prestamo  @relation(fields: [prestamoId], references: [id], onDelete: Cascade)
+  numero           Int
+  fechaVencimiento DateTime  @map("fecha_vencimiento")
+  monto            Decimal   @db.Decimal(12, 2) // cuota total (capital + interés)
+  capital          Decimal   @db.Decimal(12, 2)
+  interes          Decimal   @db.Decimal(12, 2)
+  montoPagado      Decimal   @default(0) @map("monto_pagado") @db.Decimal(12, 2)
+  pagada           Boolean   @default(false)
+  fechaPago        DateTime? @map("fecha_pago")
+
+  @@unique([prestamoId, numero])
+  @@index([prestamoId])
+  @@map("cuotas_prestamo")
 }
 
 // Link de invitación único para que un peluquero se una a un negocio sin buscarlo.

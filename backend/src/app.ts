@@ -17,6 +17,7 @@ import { uploadsRouter } from "./modules/uploads.routes.js";
 import { resenasRouter } from "./modules/resenas.routes.js";
 import { statsRouter } from "./modules/stats.routes.js";
 import { perfilesRouter } from "./modules/perfiles.routes.js";
+import { lendingRouter } from "./modules/lending.routes.js";
 import { logger } from "./lib/logger.js";
 import pinoHttp from "pino-http";
 
@@ -69,6 +70,7 @@ export function crearApp() {
   app.use("/api/resenas", resenasRouter);
   app.use("/api/stats", statsRouter);
   app.use("/api/perfiles", perfilesRouter);
+  app.use("/api/lending", lendingRouter);
   app.use("/api/suscripcion", suscripcionRouter);
   app.use("/api/connect", connectRouter);
   app.use("/api/uploads", uploadsRouter);

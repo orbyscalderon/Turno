@@ -3,6 +3,7 @@ import { api, ApiError, assetUrl, descargarCSV, type Negocio, type Perfil } from
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
+import { PrestamosView } from "./PrestamosView";
 
 interface Miembro {
   id: number;
@@ -215,6 +216,9 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
         {pendientes.length === 0 && <p className="muted small">{t("own.noPending")}</p>}
         {activos >= limite && pendientes.length > 0 && <p className="error">{t("own.limitReached")}</p>}
       </div>
+
+      {/* Módulo de préstamos (rubro prestamista) */}
+      {negocio.perfil === "prestamista" && <PrestamosView negocio={negocio} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

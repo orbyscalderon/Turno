@@ -123,9 +123,100 @@ model Negocio {
   invitaciones InvitacionNegocio[]
   resenas      Resena[]
   prestamos    Prestamo[]
+  productos    Producto[]
+  ventas       Venta[]
+  sesionesCaja SesionCaja[]
 
   @@index([estadoSuscripcion])
   @@map("negocios")
+}
+
+// ============================================================
+//  MÓDULO: INVENTARIO + POS + CAJA (rubros de retail/alimentos)
+// ============================================================
+model Producto {
+  id          String   @id @default(cuid())
+  negocioId   String   @map("negocio_id")
+  negocio     Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  nombre      String   @db.VarChar(150)
+  sku         String?  @db.VarChar(60) // código de barras / SKU
+  categoria   String?  @db.VarChar(60)
+  unidad      String   @default("UND") @db.VarChar(12)
+  precioVenta Decimal  @map("precio_venta") @db.Decimal(12, 2)
+  // % de impuesto (ITBIS/IVA). 0 = exento. Se aplica sobre el precio en la venta.
+  impuestoPct Decimal  @default(0) @map("impuesto_pct") @db.Decimal(5, 2)
+  costo       Decimal? @db.Decimal(12, 2)
+  stock       Decimal  @default(0) @db.Decimal(12, 3)
+  stockMinimo Decimal  @default(0) @map("stock_minimo") @db.Decimal(12, 3)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  movimientos MovimientoStock[]
+  lineasVenta LineaVenta[]
+
+  @@index([negocioId])
+  @@map("productos")
+}
+
+model MovimientoStock {
+  id         String   @id @default(cuid())
+  productoId String   @map("producto_id")
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  tipo       String   @db.VarChar(12) // entrada | salida | ajuste | venta
+  cantidad   Decimal  @db.Decimal(12, 3) // positivo entra, negativo sale
+  motivo     String?  @db.VarChar(200)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([productoId])
+  @@map("movimientos_stock")
+}
+
+model SesionCaja {
+  id           String    @id @default(cuid())
+  negocioId    String    @map("negocio_id")
+  negocio      Negocio   @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  montoInicial Decimal   @map("monto_inicial") @db.Decimal(12, 2)
+  montoFinal   Decimal?  @map("monto_final") @db.Decimal(12, 2)
+  abiertaEn    DateTime  @default(now()) @map("abierta_en")
+  cerradaEn    DateTime? @map("cerrada_en")
+  estado       String    @default("abierta") @db.VarChar(10) // abierta | cerrada
+
+  ventas Venta[]
+
+  @@index([negocioId])
+  @@map("sesiones_caja")
+}
+
+model Venta {
+  id           String      @id @default(cuid())
+  negocioId    String      @map("negocio_id")
+  negocio      Negocio     @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  subtotal     Decimal     @default(0) @db.Decimal(12, 2)
+  impuesto     Decimal     @default(0) @db.Decimal(12, 2)
+  total        Decimal     @db.Decimal(12, 2)
+  metodoPago   String      @default("efectivo") @map("metodo_pago") @db.VarChar(20)
+  sesionCajaId String?     @map("sesion_caja_id")
+  sesionCaja   SesionCaja? @relation(fields: [sesionCajaId], references: [id])
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  lineas LineaVenta[]
+
+  @@index([negocioId])
+  @@map("ventas")
+}
+
+model LineaVenta {
+  id         String    @id @default(cuid())
+  ventaId    String    @map("venta_id")
+  venta      Venta     @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  productoId String?   @map("producto_id")
+  producto   Producto? @relation(fields: [productoId], references: [id])
+  nombre     String    @db.VarChar(150)
+  cantidad   Decimal   @db.Decimal(12, 3)
+  precioUnit Decimal   @map("precio_unit") @db.Decimal(12, 2)
+  subtotal   Decimal   @db.Decimal(12, 2)
+
+  @@map("lineas_venta")
 }
 
 // ============================================================

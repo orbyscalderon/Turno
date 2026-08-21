@@ -4,6 +4,7 @@ import { useT } from "../i18n";
 import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
 import { PrestamosView } from "./PrestamosView";
+import { ComercioView } from "./ComercioView";
 
 interface Miembro {
   id: number;
@@ -158,6 +159,14 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
   const [activos, setActivos] = useState(0);
   const [limite, setLimite] = useState(5);
   const [error, setError] = useState("");
+  // Módulos activos del negocio según su rubro (motor de nicho).
+  const [modulos, setModulos] = useState<string[]>([]);
+  useEffect(() => {
+    if (!negocio.perfil) { setModulos([]); return; }
+    api.get<{ perfiles: Perfil[] }>("/perfiles")
+      .then((r) => setModulos(r.perfiles.find((p) => p.slug === negocio.perfil)?.modulos ?? []))
+      .catch(() => {});
+  }, [negocio.perfil]);
 
   function cargar() {
     api
@@ -217,8 +226,9 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
         {activos >= limite && pendientes.length > 0 && <p className="error">{t("own.limitReached")}</p>}
       </div>
 
-      {/* Módulo de préstamos (rubro prestamista) */}
-      {negocio.perfil === "prestamista" && <PrestamosView negocio={negocio} />}
+      {/* Módulos del motor de nicho, activados según el rubro */}
+      {modulos.includes("lending") && <PrestamosView negocio={negocio} />}
+      {modulos.includes("pos") && <ComercioView negocio={negocio} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

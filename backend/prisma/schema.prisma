@@ -90,6 +90,8 @@ model Negocio {
   slug              String            @unique
   // Categoría del negocio (barbería, estética, spa, uñas, etc.). Plataforma multi-rubro.
   categoria         String            @default("barberia") @db.VarChar(40)
+  // Rubro/perfil del motor de nicho (barberia, restaurante, supermercado…). Activa sus módulos.
+  perfil            String?           @db.VarChar(40)
   direccion         String            @db.Text
   telefonoContacto  String            @map("telefono_contacto") @db.VarChar(20)
   logoUrl           String?           @map("logo_url") @db.VarChar(255)

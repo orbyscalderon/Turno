@@ -141,6 +141,7 @@ export interface Negocio {
   id: string;
   nombreComercial: string;
   categoria?: string;
+  perfil?: string | null;
   slug: string;
   direccion: string;
   telefonoContacto: string;
@@ -151,6 +152,17 @@ export interface Negocio {
   ratingPromedio?: number;
   ratingConteo?: number;
   distanciaKm?: number | null;
+}
+
+// Rubro del motor de nicho (activa sus módulos).
+export interface Perfil {
+  slug: string;
+  nombre: string;
+  categoria: string;
+  emoji: string;
+  modoPrimario: string;
+  descripcion: string;
+  modulos: string[];
 }
 
 // URL de Google Maps para un negocio (usa coords si existen, si no la dirección).

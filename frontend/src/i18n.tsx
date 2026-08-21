@@ -252,6 +252,12 @@ const dict = {
 
   // Dueño (panel)
   "own.createBusiness": { es: "Crear negocio", en: "Create business" },
+  "own.whatBusiness": { es: "¿De qué trata tu negocio?", en: "What's your business?" },
+  "own.whatBusinessHelp": { es: "Elige tu rubro y activaremos los módulos que necesitas.", en: "Pick your type and we'll turn on the modules you need." },
+  "own.modulesActivated": { es: "Módulos que se activan", en: "Modules that activate" },
+  "own.available": { es: "Disponible", en: "Available" },
+  "own.soon": { es: "Próximamente", en: "Coming soon" },
+  "own.pickBusinessFirst": { es: "Primero elige de qué trata tu negocio.", en: "First pick what your business is about." },
   "own.commercialName": { es: "Nombre comercial", en: "Business name" },
   "own.type": { es: "Tipo de negocio", en: "Business type" },
   "own.address": { es: "Dirección", en: "Address" },

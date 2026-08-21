@@ -223,6 +223,19 @@ button:focus-visible, a:focus-visible {
 .step.active { background: linear-gradient(135deg, var(--brand-500), var(--accent)); color: #fff; border-color: transparent; box-shadow: var(--glow); }
 .step.done { color: #7ef0a6; border-color: rgba(34,197,94,.4); }
 
+/* --------- Selector de rubro (onboarding motor de nicho) --------- */
+.rubro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 6px; }
+.rubro-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 14px 10px; border-radius: 14px; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; transition: all .2s var(--ease-soft);
+}
+.rubro-card:hover { border-color: var(--brand-500); transform: translateY(-2px); }
+.rubro-card.on { border-color: transparent; background: linear-gradient(135deg, var(--brand-500), var(--accent)); color: #fff; box-shadow: var(--glow); }
+.rubro-emoji { font-size: 26px; line-height: 1; }
+.rubro-name { line-height: 1.2; }
+
 /* --------- Listas --------- */
 .list-item {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;

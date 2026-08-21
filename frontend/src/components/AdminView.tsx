@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, type Negocio } from "../api";
+import { api, ApiError, assetUrl, descargarCSV, type Negocio, type Perfil } from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
@@ -46,10 +46,23 @@ export function AdminView() {
 
 function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   const { t } = useT();
-  const [form, setForm] = useState({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+  const [form, setForm] = useState({ nombreComercial: "", direccion: "", telefonoContacto: "" });
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
+  const [perfiles, setPerfiles] = useState<Perfil[]>([]);
+  const [moduloLabels, setModuloLabels] = useState<Record<string, string>>({});
+  const [disponibles, setDisponibles] = useState<string[]>([]);
+  const [perfilSel, setPerfilSel] = useState("");
+
+  // Catálogo de rubros (motor de nicho).
+  useEffect(() => {
+    api.get<{ perfiles: Perfil[]; moduloLabels: Record<string, string>; modulosDisponibles: string[] }>("/perfiles")
+      .then((r) => { setPerfiles(r.perfiles); setModuloLabels(r.moduloLabels); setDisponibles(r.modulosDisponibles); })
+      .catch(() => {});
+  }, []);
+
+  const perfilObj = perfiles.find((p) => p.slug === perfilSel);
 
   function usarUbicacion() {
     if (!navigator.geolocation) return;
@@ -63,10 +76,12 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
+    if (!perfilSel) { setMsg(t("own.pickBusinessFirst")); return; }
     try {
-      await api.post("/negocios", { ...form, ...(coords ?? {}) });
-      setForm({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
-      setCoords(null);
+      // El rubro elegido activa sus módulos; también sirve de categoría en el directorio.
+      await api.post("/negocios", { ...form, perfil: perfilSel, categoria: perfilSel, ...(coords ?? {}) });
+      setForm({ nombreComercial: "", direccion: "", telefonoContacto: "" });
+      setPerfilSel(""); setCoords(null);
       setMsg(t("own.created"));
       onCreado();
     } catch (err) {
@@ -77,13 +92,47 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   return (
     <div className="card">
       <h2>{t("own.createBusiness")}</h2>
+
+      {/* Paso 1: elegir el rubro → activa sus módulos */}
+      <label>{t("own.whatBusiness")}</label>
+      <p className="muted small" style={{ margin: "0 0 10px" }}>{t("own.whatBusinessHelp")}</p>
+      <div className="rubro-grid">
+        {perfiles.map((p) => (
+          <button
+            type="button"
+            key={p.slug}
+            className={`rubro-card ${perfilSel === p.slug ? "on" : ""}`}
+            onClick={() => setPerfilSel(p.slug)}
+            title={p.descripcion}
+          >
+            <span className="rubro-emoji">{p.emoji}</span>
+            <span className="rubro-name">{p.nombre}</span>
+          </button>
+        ))}
+      </div>
+
+      {perfilObj && (
+        <div className="card pop" style={{ background: "var(--surface-2)", marginTop: 12, borderColor: "var(--brand-600)" }}>
+          <p className="small muted" style={{ margin: "0 0 8px" }}>{perfilObj.descripcion}</p>
+          <strong className="small">{t("own.modulesActivated")}</strong>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            {perfilObj.modulos.map((m) => {
+              const ok = disponibles.includes(m);
+              return (
+                <span key={m} className={`badge ${ok ? "ok" : ""}`} title={ok ? t("own.available") : t("own.soon")}>
+                  {ok ? "✓" : "🔜"} {moduloLabels[m] ?? m}
+                </span>
+              );
+            })}
+          </div>
+          <p className="muted small" style={{ margin: "8px 0 0" }}>✓ {t("own.available")} · 🔜 {t("own.soon")}</p>
+        </div>
+      )}
+
+      {/* Paso 2: datos del negocio */}
       <form onSubmit={crear}>
         <label>{t("own.commercialName")}</label>
         <input value={form.nombreComercial} onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })} required />
-        <label>{t("own.type")}</label>
-        <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-          {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
         <label>{t("own.address")}</label>
         <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
         <label>{t("own.locationLabel")}</label>
@@ -95,7 +144,7 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
         </div>
         <label>{t("own.phone")}</label>
         <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
-        <button className="primary" style={{ marginTop: 12 }}>{t("own.create")}</button>
+        <button className="primary" style={{ marginTop: 12 }} disabled={!perfilSel}>{t("own.create")}</button>
       </form>
       {msg && <p className="success">{msg}</p>}
     </div>

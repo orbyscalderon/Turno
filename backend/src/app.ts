@@ -16,6 +16,7 @@ import { connectRouter } from "./modules/connect.routes.js";
 import { uploadsRouter } from "./modules/uploads.routes.js";
 import { resenasRouter } from "./modules/resenas.routes.js";
 import { statsRouter } from "./modules/stats.routes.js";
+import { perfilesRouter } from "./modules/perfiles.routes.js";
 import { logger } from "./lib/logger.js";
 import pinoHttp from "pino-http";
 
@@ -67,6 +68,7 @@ export function crearApp() {
   app.use("/api/reservas", reservasRouter);
   app.use("/api/resenas", resenasRouter);
   app.use("/api/stats", statsRouter);
+  app.use("/api/perfiles", perfilesRouter);
   app.use("/api/suscripcion", suscripcionRouter);
   app.use("/api/connect", connectRouter);
   app.use("/api/uploads", uploadsRouter);

@@ -10,6 +10,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { paginationSchema, paginar, metaPaginacion } from "../lib/pagination.js";
 import { calcularSplitFianza } from "../lib/split.js";
 import { limitePeluqueros, limiteNegocios } from "../lib/planes.js";
+import { SLUGS_PERFIL } from "../config/perfiles.js";
 
 export const negociosRouter = Router();
 
@@ -107,6 +108,7 @@ negociosRouter.get(
         id: true,
         nombreComercial: true,
         categoria: true,
+        perfil: true,
         slug: true,
         direccion: true,
         telefonoContacto: true,
@@ -189,6 +191,8 @@ export const CATEGORIAS = [
 const crearNegocioSchema = z.object({
   nombreComercial: z.string().min(2).max(150),
   categoria: z.string().min(2).max(40).default("otro"),
+  // Rubro del motor de nicho (activa sus módulos). Debe existir en el catálogo.
+  perfil: z.enum(SLUGS_PERFIL as [string, ...string[]]).optional(),
   direccion: z.string().min(3),
   telefonoContacto: z.string().min(6).max(20),
   lat: z.number().min(-90).max(90).optional(),
@@ -230,6 +234,7 @@ negociosRouter.post(
       data: {
         nombreComercial: data.nombreComercial,
         categoria: data.categoria,
+        perfil: data.perfil ?? null,
         direccion: data.direccion,
         telefonoContacto: data.telefonoContacto,
         lat: data.lat,

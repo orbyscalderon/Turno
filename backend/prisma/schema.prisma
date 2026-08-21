@@ -130,9 +130,43 @@ model Negocio {
   mesas        Mesa[]
   comandas     Comanda[]
   ordenesServicio OrdenServicio[]
+  gastos       Gasto[]
+  clientes     ClienteNegocio[]
 
   @@index([estadoSuscripcion])
   @@map("negocios")
+}
+
+// ============================================================
+//  MÓDULOS DE SOPORTE: GASTOS y CLIENTES (casi todos los rubros)
+// ============================================================
+model Gasto {
+  id          String   @id @default(cuid())
+  negocioId   String   @map("negocio_id")
+  negocio     Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  categoria   String?  @db.VarChar(60)
+  descripcion String   @db.VarChar(200)
+  monto       Decimal  @db.Decimal(12, 2)
+  fecha       DateTime
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([negocioId])
+  @@map("gastos")
+}
+
+model ClienteNegocio {
+  id        String   @id @default(cuid())
+  negocioId String   @map("negocio_id")
+  negocio   Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  nombre    String   @db.VarChar(120)
+  telefono  String?  @db.VarChar(20)
+  email     String?  @db.VarChar(150)
+  direccion String?  @db.VarChar(200)
+  notas     String?  @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([negocioId])
+  @@map("clientes_negocio")
 }
 
 // ============================================================

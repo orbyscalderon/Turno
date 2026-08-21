@@ -8,6 +8,8 @@ import { ComercioView } from "./ComercioView";
 import { AgroView } from "./AgroView";
 import { MesasView } from "./MesasView";
 import { ServiceOrdersView } from "./ServiceOrdersView";
+import { GastosView } from "./GastosView";
+import { ClientesView } from "./ClientesView";
 
 interface Miembro {
   id: number;
@@ -235,6 +237,8 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       {modulos.includes("agro") && <AgroView negocio={negocio} />}
       {modulos.includes("tables") && <MesasView negocio={negocio} />}
       {modulos.includes("service_orders") && <ServiceOrdersView negocio={negocio} />}
+      {modulos.includes("customers") && <ClientesView negocio={negocio} />}
+      {modulos.includes("expenses") && <GastosView negocio={negocio} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

@@ -14,6 +14,7 @@ import { Legal } from "./components/Legal";
 import { CookieConsent } from "./components/CookieConsent";
 import { PublicLanding } from "./components/PublicLanding";
 import { Precios } from "./components/Precios";
+import { Storefront } from "./components/Storefront";
 import { COMPANY } from "./company";
 import { useState } from "react";
 
@@ -61,6 +62,12 @@ export default function App() {
   const verMatch = path.match(/^\/verificar\/(.+)$/);
   if (verMatch) {
     return (<><Header /><VerificarEmail token={verMatch[1]} /></>);
+  }
+
+  // Tienda online pública (/tienda/:slug).
+  const tiendaMatch = path.match(/^\/tienda\/(.+)$/);
+  if (tiendaMatch) {
+    return (<><Header><LangToggle /></Header><Storefront slug={tiendaMatch[1]} /><Footer /></>);
   }
 
   // Rutas legales públicas.

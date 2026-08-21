@@ -160,6 +160,23 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   );
 }
 
+// Tienda online: enlace público para compartir (módulo storefront).
+function TiendaLink({ slug }: { slug: string }) {
+  const url = `${window.location.origin}/tienda/${slug}`;
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <div className="card">
+      <h2>🛍️ Tienda online</h2>
+      <p className="muted small">Comparte este enlace: tus clientes ven tu catálogo y te piden por WhatsApp.</p>
+      <div className="row" style={{ marginTop: 8 }}>
+        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
+        <button className="ghost" onClick={() => { navigator.clipboard?.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 1500); }}>{copiado ? "¡Copiado!" : "Copiar"}</button>
+        <a href={url} target="_blank" rel="noreferrer"><button className="ghost">Abrir</button></a>
+      </div>
+    </div>
+  );
+}
+
 function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () => void }) {
   const { t } = useT();
   const [miembros, setMiembros] = useState<Miembro[]>([]);
@@ -243,6 +260,7 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       {modulos.includes("customers") && <ClientesView negocio={negocio} loyalty={modulos.includes("loyalty")} />}
       {modulos.includes("expenses") && <GastosView negocio={negocio} />}
       {modulos.includes("taxes") && <ImpuestosView negocio={negocio} />}
+      {modulos.includes("storefront") && <TiendaLink slug={negocio.slug} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

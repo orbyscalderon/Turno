@@ -5,6 +5,9 @@ import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
 import { PrestamosView } from "./PrestamosView";
 import { ComercioView } from "./ComercioView";
+import { AgroView } from "./AgroView";
+import { MesasView } from "./MesasView";
+import { ServiceOrdersView } from "./ServiceOrdersView";
 
 interface Miembro {
   id: number;
@@ -229,6 +232,9 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       {/* Módulos del motor de nicho, activados según el rubro */}
       {modulos.includes("lending") && <PrestamosView negocio={negocio} />}
       {modulos.includes("pos") && <ComercioView negocio={negocio} />}
+      {modulos.includes("agro") && <AgroView negocio={negocio} />}
+      {modulos.includes("tables") && <MesasView negocio={negocio} />}
+      {modulos.includes("service_orders") && <ServiceOrdersView negocio={negocio} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

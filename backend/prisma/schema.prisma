@@ -126,9 +126,115 @@ model Negocio {
   productos    Producto[]
   ventas       Venta[]
   sesionesCaja SesionCaja[]
+  lotesAgro    LoteBiologico[]
+  mesas        Mesa[]
+  comandas     Comanda[]
+  ordenesServicio OrdenServicio[]
 
   @@index([estadoSuscripcion])
   @@map("negocios")
+}
+
+// ============================================================
+//  MÓDULO: AGRO (granja avícola: lotes biológicos)
+// ============================================================
+model LoteBiologico {
+  id              String         @id @default(cuid())
+  negocioId       String         @map("negocio_id")
+  negocio         Negocio        @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  nombre          String         @db.VarChar(120)
+  especie         String         @default("broiler") @db.VarChar(20) // broiler | layer
+  tipoProduccion  String         @default("meat") @map("tipo_produccion") @db.VarChar(20) // meat | eggs
+  cantidadInicial Int            @map("cantidad_inicial")
+  fechaInicio     DateTime       @map("fecha_inicio")
+  costoInicial    Decimal?       @map("costo_inicial") @db.Decimal(12, 2)
+  estado          String         @default("activo") @db.VarChar(10) // activo | cerrado
+  notas           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  registros RegistroAgro[]
+
+  @@index([negocioId])
+  @@map("lotes_biologicos")
+}
+
+model RegistroAgro {
+  id            String        @id @default(cuid())
+  loteId        String        @map("lote_id")
+  lote          LoteBiologico @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  fecha         DateTime
+  mortalidad    Int           @default(0)
+  alimentoKg    Decimal       @default(0) @map("alimento_kg") @db.Decimal(12, 3)
+  pesoPromedioG Decimal?      @map("peso_promedio_g") @db.Decimal(12, 3)
+  produccion    Int           @default(0) // huevos u otra unidad producida ese día
+  notas         String?       @db.VarChar(200)
+
+  @@unique([loteId, fecha])
+  @@index([loteId])
+  @@map("registros_agro")
+}
+
+// ============================================================
+//  MÓDULO: MESAS / COMANDAS (restaurante)
+// ============================================================
+model Mesa {
+  id        String    @id @default(cuid())
+  negocioId String    @map("negocio_id")
+  negocio   Negocio   @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  nombre    String    @db.VarChar(40)
+  estado    String    @default("libre") @db.VarChar(10) // libre | ocupada
+  comandas  Comanda[]
+
+  @@index([negocioId])
+  @@map("mesas")
+}
+
+model Comanda {
+  id        String         @id @default(cuid())
+  negocioId String         @map("negocio_id")
+  negocio   Negocio        @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  mesaId    String?        @map("mesa_id")
+  mesa      Mesa?          @relation(fields: [mesaId], references: [id])
+  estado    String         @default("abierta") @db.VarChar(10) // abierta | cerrada | cancelada
+  total     Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt DateTime       @default(now()) @map("created_at")
+  lineas    LineaComanda[]
+
+  @@index([negocioId])
+  @@map("comandas")
+}
+
+model LineaComanda {
+  id         String  @id @default(cuid())
+  comandaId  String  @map("comanda_id")
+  comanda    Comanda @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  nombre     String  @db.VarChar(150)
+  cantidad   Decimal @db.Decimal(12, 3)
+  precioUnit Decimal @map("precio_unit") @db.Decimal(12, 2)
+  notas      String? @db.VarChar(200)
+
+  @@map("lineas_comanda")
+}
+
+// ============================================================
+//  MÓDULO: ÓRDENES DE SERVICIO (taller / servicio técnico)
+// ============================================================
+model OrdenServicio {
+  id              String   @id @default(cuid())
+  negocioId       String   @map("negocio_id")
+  negocio         Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  clienteNombre   String   @map("cliente_nombre") @db.VarChar(120)
+  clienteTelefono String?  @map("cliente_telefono") @db.VarChar(20)
+  equipo          String   @db.VarChar(200) // equipo o vehículo recibido
+  problema        String?  @db.Text
+  diagnostico     String?  @db.Text
+  estado          String   @default("recibido") @db.VarChar(15) // recibido|diagnostico|reparacion|listo|entregado|cancelado
+  costoEstimado   Decimal? @map("costo_estimado") @db.Decimal(12, 2)
+  costoFinal      Decimal? @map("costo_final") @db.Decimal(12, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([negocioId])
+  @@map("ordenes_servicio")
 }
 
 // ============================================================

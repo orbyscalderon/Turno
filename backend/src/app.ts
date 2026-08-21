@@ -20,6 +20,9 @@ import { perfilesRouter } from "./modules/perfiles.routes.js";
 import { lendingRouter } from "./modules/lending.routes.js";
 import { inventoryRouter } from "./modules/inventory.routes.js";
 import { posRouter } from "./modules/pos.routes.js";
+import { agroRouter } from "./modules/agro.routes.js";
+import { tablesRouter } from "./modules/tables.routes.js";
+import { serviceOrdersRouter } from "./modules/service_orders.routes.js";
 import { logger } from "./lib/logger.js";
 import pinoHttp from "pino-http";
 
@@ -75,6 +78,9 @@ export function crearApp() {
   app.use("/api/lending", lendingRouter);
   app.use("/api/inventario", inventoryRouter);
   app.use("/api/pos", posRouter);
+  app.use("/api/agro", agroRouter);
+  app.use("/api/mesas", tablesRouter);
+  app.use("/api/ordenes-servicio", serviceOrdersRouter);
   app.use("/api/suscripcion", suscripcionRouter);
   app.use("/api/connect", connectRouter);
   app.use("/api/uploads", uploadsRouter);

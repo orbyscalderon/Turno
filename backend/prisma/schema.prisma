@@ -194,6 +194,8 @@ model ClienteNegocio {
   email     String?  @db.VarChar(150)
   direccion String?  @db.VarChar(200)
   notas     String?  @db.VarChar(300)
+  // Fidelización: puntos/sellos acumulados (módulo loyalty).
+  puntos    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([negocioId])

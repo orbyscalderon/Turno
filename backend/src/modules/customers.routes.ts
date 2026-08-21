@@ -42,6 +42,17 @@ customersRouter.post("/", requireAuth, requireRole("admin_negocio"), asyncHandle
   res.status(201).json({ cliente });
 }));
 
+// Fidelización: suma/resta puntos o sellos al cliente (delta puede ser negativo al canjear).
+customersRouter.post("/:id/puntos", requireAuth, requireRole("admin_negocio"), asyncHandler(async (req, res) => {
+  const { delta } = z.object({ delta: z.coerce.number().int() }).parse(req.body);
+  const c = await prisma.clienteNegocio.findUnique({ where: { id: req.params.id }, select: { negocioId: true, puntos: true } });
+  if (!c) throw NotFound("Cliente no encontrado");
+  await assertDueno(c.negocioId, req.user!.sub, req.user!.rol);
+  const puntos = Math.max(0, c.puntos + delta);
+  const cliente = await prisma.clienteNegocio.update({ where: { id: req.params.id }, data: { puntos } });
+  res.json({ cliente });
+}));
+
 customersRouter.patch("/:id", requireAuth, requireRole("admin_negocio"), asyncHandler(async (req, res) => {
   const c = await prisma.clienteNegocio.findUnique({ where: { id: req.params.id }, select: { negocioId: true } });
   if (!c) throw NotFound("Cliente no encontrado");

@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type Negocio } from "../api";
 
 // Módulo CLIENTES (CRM básico del negocio).
-interface Cliente { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null; notas: string | null }
+interface Cliente { id: string; nombre: string; telefono: string | null; email: string | null; direccion: string | null; notas: string | null; puntos: number }
 
-export function ClientesView({ negocio }: { negocio: Negocio }) {
+export function ClientesView({ negocio, loyalty = false }: { negocio: Negocio; loyalty?: boolean }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [q, setQ] = useState("");
   const [nuevo, setNuevo] = useState(false);
@@ -21,6 +21,7 @@ export function ClientesView({ negocio }: { negocio: Negocio }) {
     try { await api.post("/clientes", { ...f, negocioId: negocio.id }); setF({ nombre: "", telefono: "", email: "", direccion: "", notas: "" }); setNuevo(false); cargar(); }
     catch (err) { setError(err instanceof ApiError ? err.message : "Error"); }
   }
+  async function puntos(id: string, delta: number) { await api.post(`/clientes/${id}/puntos`, { delta }); cargar(); }
 
   return (
     <div className="card">
@@ -46,6 +47,13 @@ export function ClientesView({ negocio }: { negocio: Negocio }) {
       {clientes.map((c) => (
         <div className="list-item" key={c.id}>
           <div><strong>{c.nombre}</strong><br /><span className="muted small">{[c.telefono, c.email, c.direccion].filter(Boolean).join(" · ") || "—"}</span></div>
+          {loyalty && (
+            <div className="row" style={{ alignItems: "center", gap: 6 }}>
+              <span className="badge ok">⭐ {c.puntos}</span>
+              <button className="ghost small" onClick={() => puntos(c.id, 1)}>+1</button>
+              <button className="ghost small" onClick={() => puntos(c.id, -1)}>−1</button>
+            </div>
+          )}
         </div>
       ))}
       {clientes.length === 0 && <p className="muted small" style={{ marginTop: 8 }}>Sin clientes.</p>}

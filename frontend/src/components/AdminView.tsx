@@ -240,7 +240,7 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       {modulos.includes("tables") && <MesasView negocio={negocio} />}
       {modulos.includes("service_orders") && <ServiceOrdersView negocio={negocio} />}
       {modulos.includes("purchasing") && <ComprasView negocio={negocio} />}
-      {modulos.includes("customers") && <ClientesView negocio={negocio} />}
+      {modulos.includes("customers") && <ClientesView negocio={negocio} loyalty={modulos.includes("loyalty")} />}
       {modulos.includes("expenses") && <GastosView negocio={negocio} />}
       {modulos.includes("taxes") && <ImpuestosView negocio={negocio} />}
 

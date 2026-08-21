@@ -132,9 +132,40 @@ model Negocio {
   ordenesServicio OrdenServicio[]
   gastos       Gasto[]
   clientes     ClienteNegocio[]
+  compras      Compra[]
 
   @@index([estadoSuscripcion])
   @@map("negocios")
+}
+
+// ============================================================
+//  MÓDULO: COMPRAS (reposición de inventario desde proveedores)
+// ============================================================
+model Compra {
+  id        String        @id @default(cuid())
+  negocioId String        @map("negocio_id")
+  negocio   Negocio       @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  proveedor String?       @db.VarChar(120)
+  total     Decimal       @db.Decimal(12, 2)
+  fecha     DateTime
+  createdAt DateTime      @default(now()) @map("created_at")
+  lineas    LineaCompra[]
+
+  @@index([negocioId])
+  @@map("compras")
+}
+
+model LineaCompra {
+  id         String    @id @default(cuid())
+  compraId   String    @map("compra_id")
+  compra     Compra    @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  productoId String?   @map("producto_id")
+  producto   Producto? @relation(fields: [productoId], references: [id])
+  nombre     String    @db.VarChar(150)
+  cantidad   Decimal   @db.Decimal(12, 3)
+  costoUnit  Decimal   @map("costo_unit") @db.Decimal(12, 2)
+
+  @@map("lineas_compra")
 }
 
 // ============================================================
@@ -293,6 +324,7 @@ model Producto {
 
   movimientos MovimientoStock[]
   lineasVenta LineaVenta[]
+  lineasCompra LineaCompra[]
 
   @@index([negocioId])
   @@map("productos")

@@ -25,6 +25,8 @@ import { tablesRouter } from "./modules/tables.routes.js";
 import { serviceOrdersRouter } from "./modules/service_orders.routes.js";
 import { expensesRouter } from "./modules/expenses.routes.js";
 import { customersRouter } from "./modules/customers.routes.js";
+import { purchasingRouter } from "./modules/purchasing.routes.js";
+import { taxesRouter } from "./modules/taxes.routes.js";
 import { logger } from "./lib/logger.js";
 import pinoHttp from "pino-http";
 
@@ -85,6 +87,8 @@ export function crearApp() {
   app.use("/api/ordenes-servicio", serviceOrdersRouter);
   app.use("/api/gastos", expensesRouter);
   app.use("/api/clientes", customersRouter);
+  app.use("/api/compras", purchasingRouter);
+  app.use("/api/impuestos", taxesRouter);
   app.use("/api/suscripcion", suscripcionRouter);
   app.use("/api/connect", connectRouter);
   app.use("/api/uploads", uploadsRouter);

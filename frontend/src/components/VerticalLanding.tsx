@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Perfil } from "../api";
+import { rubroTema } from "../rubroTema";
 
 // Landing de marketing por rubro (B2B). Ruta: /para/:slug
 // El copy vive aquí; los módulos salen del catálogo del motor de nicho.
@@ -28,20 +29,22 @@ export function VerticalLanding({ slug, onRegistrar }: { slug: string; onRegistr
 
   if (!perfil) return <div className="container"><p className="muted">Cargando…</p></div>;
   const copy = COPY[slug] ?? { titulo: perfil.nombre, sub: perfil.descripcion };
+  const tema = rubroTema(slug);
 
   return (
     <div className="container" style={{ maxWidth: 900 }}>
-      <div className="mkt-hero">
-        <div style={{ fontSize: 56, lineHeight: 1 }}>{perfil.emoji}</div>
-        <h1 style={{ marginTop: 12 }}>{copy.titulo}</h1>
-        <p className="sub">{copy.sub}</p>
-        <div style={{ marginTop: 18 }}>
-          <button className="primary" style={{ fontSize: 16, padding: "12px 28px" }} onClick={() => onRegistrar(slug)}>Empezar gratis</button>
+      {/* Banner con la identidad visual del rubro */}
+      <div style={{ background: tema.grad, borderRadius: 22, padding: "48px 28px", textAlign: "center", color: "#fff", boxShadow: "0 18px 50px rgba(0,0,0,.35)" }}>
+        <div style={{ fontSize: 60, lineHeight: 1 }}>{perfil.emoji}</div>
+        <h1 style={{ marginTop: 14, color: "#fff", fontSize: 40, textShadow: "0 2px 20px rgba(0,0,0,.3)" }}>{copy.titulo}</h1>
+        <p style={{ maxWidth: 560, margin: "10px auto 0", fontSize: 18, opacity: .95 }}>{copy.sub}</p>
+        <div style={{ marginTop: 22 }}>
+          <button className="primary" style={{ fontSize: 16, padding: "13px 30px", background: "#fff", color: "#111" }} onClick={() => onRegistrar(slug)}>Empezar gratis</button>
         </div>
-        <p className="muted small" style={{ marginTop: 10 }}>14 días de prueba · sin tarjeta</p>
+        <p style={{ marginTop: 12, fontSize: 13, opacity: .9 }}>14 días de prueba · sin tarjeta</p>
       </div>
 
-      <div className="card" style={{ marginTop: 8 }}>
+      <div className="card" style={{ marginTop: 18 }}>
         <h2 style={{ marginTop: 0 }}>Todo lo que incluye para {perfil.nombre}</h2>
         <div className="value-grid">
           {perfil.modulos.map((m) => (
@@ -54,9 +57,9 @@ export function VerticalLanding({ slug, onRegistrar }: { slug: string; onRegistr
         </div>
       </div>
 
-      <div className="card" style={{ textAlign: "center" }}>
+      <div className="card" style={{ textAlign: "center", borderColor: tema.accent }}>
         <h2>¿Listo para digitalizar tu {perfil.nombre.toLowerCase()}?</h2>
-        <button className="primary" style={{ marginTop: 10 }} onClick={() => onRegistrar(slug)}>Crear mi cuenta</button>
+        <button className="primary" style={{ marginTop: 10, background: tema.accent, borderColor: tema.accent }} onClick={() => onRegistrar(slug)}>Crear mi cuenta</button>
         <p className="muted small" style={{ marginTop: 10 }}>
           ¿Otro tipo de negocio? <a href="/soluciones">Ver todas las soluciones</a>
         </p>

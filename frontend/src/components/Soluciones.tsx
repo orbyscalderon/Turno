@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Perfil } from "../api";
+import { rubroTema } from "../rubroTema";
 
 // Hub de soluciones: una tarjeta por rubro que lleva a su landing. Ruta: /soluciones
 export function Soluciones() {
@@ -15,7 +16,7 @@ export function Soluciones() {
       <div className="mkt-grid">
         {perfiles.map((p) => (
           <a className="biz-card" key={p.slug} href={`/para/${p.slug}`} style={{ textDecoration: "none" }}>
-            <div className="biz-cover" style={{ background: "linear-gradient(135deg,#2f7bff,#12131a)", display: "grid", placeItems: "center" }}>
+            <div className="biz-cover" style={{ background: rubroTema(p.slug).grad, display: "grid", placeItems: "center" }}>
               <span style={{ fontSize: 44 }}>{p.emoji}</span>
             </div>
             <div className="biz-body">

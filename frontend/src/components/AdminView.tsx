@@ -62,7 +62,11 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   const [perfiles, setPerfiles] = useState<Perfil[]>([]);
   const [moduloLabels, setModuloLabels] = useState<Record<string, string>>({});
   const [disponibles, setDisponibles] = useState<string[]>([]);
-  const [perfilSel, setPerfilSel] = useState("");
+  // Preselecciona el rubro si el usuario llegó desde una landing por rubro.
+  const [perfilSel, setPerfilSel] = useState(() => {
+    try { const p = localStorage.getItem("turno_perfil_preferido"); if (p) { localStorage.removeItem("turno_perfil_preferido"); return p; } } catch { /* ignore */ }
+    return "";
+  });
 
   // Catálogo de rubros (motor de nicho).
   useEffect(() => {

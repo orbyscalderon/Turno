@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
 import { api, ApiError } from "../api";
 import { useT } from "../i18n";
@@ -7,7 +7,9 @@ import { GoogleButton } from "./GoogleButton";
 export function Login() {
   const { login, loginGoogle, registro } = useAuth();
   const { t } = useT();
-  const [modo, setModo] = useState<"login" | "registro" | "olvide">("login");
+  // Si el usuario llegó desde una landing de negocio, arranca en registro como dueño.
+  const intentNegocio = (() => { try { return localStorage.getItem("turno_intent") === "negocio"; } catch { return false; } })();
+  const [modo, setModo] = useState<"login" | "registro" | "olvide">(intentNegocio ? "registro" : "login");
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -17,8 +19,11 @@ export function Login() {
     telefono: "",
     email: "",
     password: "",
-    rol: "cliente" as "admin_negocio" | "peluquero" | "cliente",
+    rol: (intentNegocio ? "admin_negocio" : "cliente") as "admin_negocio" | "peluquero" | "cliente",
   });
+
+  // Consume el flag de intención una vez montado el formulario.
+  useEffect(() => { try { localStorage.removeItem("turno_intent"); } catch { /* ignore */ } }, []);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));

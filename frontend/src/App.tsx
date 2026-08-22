@@ -17,12 +17,18 @@ import { Precios } from "./components/Precios";
 import { Storefront } from "./components/Storefront";
 import { Soluciones } from "./components/Soluciones";
 import { VerticalLanding } from "./components/VerticalLanding";
+import { PlatformHome } from "./components/PlatformHome";
 import { COMPANY } from "./company";
 import { useEffect, useState } from "react";
 
-// Al llegar desde una landing de rubro, abre el registro con el rubro preseleccionado.
+// Al llegar desde una landing de rubro, abre el registro como DUEÑO DE NEGOCIO
+// con el rubro preseleccionado (no como cliente de belleza).
 function irARegistro(perfil: string) {
-  try { localStorage.setItem("turno_perfil_preferido", perfil); localStorage.setItem("turno_signup", "1"); } catch { /* ignore */ }
+  try {
+    if (perfil) localStorage.setItem("turno_perfil_preferido", perfil);
+    localStorage.setItem("turno_signup", "1");
+    localStorage.setItem("turno_intent", "negocio");
+  } catch { /* ignore */ }
   window.location.assign("/");
 }
 
@@ -131,7 +137,9 @@ export default function App() {
             <button className="primary small" onClick={() => setAuthView("login")}>{t("pub.signUp")}</button>
           </div>
         </Header>
-        <PublicLanding onReservar={() => setAuthView("login")} />
+        {path === "/reservas"
+          ? <PublicLanding onReservar={() => setAuthView("login")} />
+          : <PlatformHome onNegocio={() => window.location.assign("/soluciones")} onReservar={() => window.location.assign("/reservas")} />}
         <Footer /><CookieConsent />
       </>
     );

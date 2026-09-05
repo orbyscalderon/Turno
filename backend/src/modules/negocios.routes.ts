@@ -206,6 +206,8 @@ negociosRouter.post(
   asyncHandler(async (req, res) => {
     const data = crearNegocioSchema.parse(req.body);
     const duenoId = req.user!.sub;
+    // En modo "rubro fijo", todos los negocios de este despliegue son de ese rubro.
+    const perfilFinal = env.rubroFijo || data.perfil || null;
 
     // Límite de negocios por dueño según su plan (el superadmin queda exento).
     if (req.user!.rol !== "superadmin") {
@@ -233,8 +235,8 @@ negociosRouter.post(
     const negocio = await prisma.negocio.create({
       data: {
         nombreComercial: data.nombreComercial,
-        categoria: data.categoria,
-        perfil: data.perfil ?? null,
+        categoria: env.rubroFijo || data.categoria,
+        perfil: perfilFinal,
         direccion: data.direccion,
         telefonoContacto: data.telefonoContacto,
         lat: data.lat,

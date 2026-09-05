@@ -68,10 +68,13 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     return "";
   });
 
-  // Catálogo de rubros (motor de nicho).
+  // Catálogo de rubros (motor de nicho). En modo "rubro fijo" llega uno solo → se auto-selecciona.
   useEffect(() => {
     api.get<{ perfiles: Perfil[]; moduloLabels: Record<string, string>; modulosDisponibles: string[] }>("/perfiles")
-      .then((r) => { setPerfiles(r.perfiles); setModuloLabels(r.moduloLabels); setDisponibles(r.modulosDisponibles); })
+      .then((r) => {
+        setPerfiles(r.perfiles); setModuloLabels(r.moduloLabels); setDisponibles(r.modulosDisponibles);
+        if (r.perfiles.length === 1) setPerfilSel((s) => s || r.perfiles[0].slug);
+      })
       .catch(() => {});
   }, []);
 

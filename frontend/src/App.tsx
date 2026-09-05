@@ -21,6 +21,10 @@ import { PlatformHome } from "./components/PlatformHome";
 import { COMPANY } from "./company";
 import { useEffect, useState } from "react";
 
+// Modo "rubro fijo": si se compila con VITE_RUBRO_FIJO, este despliegue es un producto
+// de un solo rubro (su landing es la home, sin hub de soluciones).
+const RUBRO_FIJO = ((import.meta.env.VITE_RUBRO_FIJO as string | undefined) ?? "").trim();
+
 // Al llegar desde una landing de rubro, abre el registro como DUEÑO DE NEGOCIO
 // con el rubro preseleccionado (no como cliente de belleza).
 function irARegistro(perfil: string) {
@@ -131,15 +135,17 @@ export default function App() {
         <Header>
           <div className="row">
             <LangToggle />
-            <a className="ghost small" href="/soluciones" style={{ padding: "6px 10px" }}>Soluciones</a>
+            {!RUBRO_FIJO && <a className="ghost small" href="/soluciones" style={{ padding: "6px 10px" }}>Soluciones</a>}
             <a className="ghost small" href="/precios" style={{ padding: "6px 10px" }}>{t("pub.pricing")}</a>
             <button className="ghost small" onClick={() => setAuthView("login")}>{t("pub.signIn")}</button>
-            <button className="primary small" onClick={() => setAuthView("login")}>{t("pub.signUp")}</button>
+            <button className="primary small" onClick={() => (RUBRO_FIJO ? irARegistro(RUBRO_FIJO) : setAuthView("login"))}>{t("pub.signUp")}</button>
           </div>
         </Header>
-        {path === "/reservas"
-          ? <PublicLanding onReservar={() => setAuthView("login")} />
-          : <PlatformHome onNegocio={() => window.location.assign("/soluciones")} onReservar={() => window.location.assign("/reservas")} />}
+        {RUBRO_FIJO
+          ? <VerticalLanding slug={RUBRO_FIJO} onRegistrar={irARegistro} />
+          : path === "/reservas"
+            ? <PublicLanding onReservar={() => setAuthView("login")} />
+            : <PlatformHome onNegocio={() => window.location.assign("/soluciones")} onReservar={() => window.location.assign("/reservas")} />}
         <Footer /><CookieConsent />
       </>
     );

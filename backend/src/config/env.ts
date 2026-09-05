@@ -68,6 +68,10 @@ const schema = z.object({
   COMPANY_SUPPORT_EMAIL: z.string().default("soporte@turno.app"),
   // Login con Google (Google Identity Services). Vacío = botón de Google desactivado.
   GOOGLE_CLIENT_ID: z.string().default(""),
+  // Modo "rubro fijo": si se define (ej. "supermercado"), este despliegue es un producto
+  // de un solo rubro — /perfiles solo devuelve ese, y los negocios se fuerzan a él.
+  // Vacío = plataforma multi-rubro completa.
+  RUBRO_FIJO: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -158,4 +162,5 @@ export const env = {
   companyName: e.COMPANY_NAME,
   companySupportEmail: e.COMPANY_SUPPORT_EMAIL,
   googleClientId: e.GOOGLE_CLIENT_ID,
+  rubroFijo: e.RUBRO_FIJO,
 } as const;

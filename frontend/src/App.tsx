@@ -14,27 +14,8 @@ import { Legal } from "./components/Legal";
 import { CookieConsent } from "./components/CookieConsent";
 import { PublicLanding } from "./components/PublicLanding";
 import { Precios } from "./components/Precios";
-import { Storefront } from "./components/Storefront";
-import { Soluciones } from "./components/Soluciones";
-import { VerticalLanding } from "./components/VerticalLanding";
-import { PlatformHome } from "./components/PlatformHome";
 import { COMPANY } from "./company";
-import { useEffect, useState } from "react";
-
-// Modo "rubro fijo": si se compila con VITE_RUBRO_FIJO, este despliegue es un producto
-// de un solo rubro (su landing es la home, sin hub de soluciones).
-const RUBRO_FIJO = ((import.meta.env.VITE_RUBRO_FIJO as string | undefined) ?? "").trim();
-
-// Al llegar desde una landing de rubro, abre el registro como DUEÑO DE NEGOCIO
-// con el rubro preseleccionado (no como cliente de belleza).
-function irARegistro(perfil: string) {
-  try {
-    if (perfil) localStorage.setItem("turno_perfil_preferido", perfil);
-    localStorage.setItem("turno_signup", "1");
-    localStorage.setItem("turno_intent", "negocio");
-  } catch { /* ignore */ }
-  window.location.assign("/");
-}
+import { useState } from "react";
 
 function Footer() {
   return (
@@ -67,10 +48,6 @@ export default function App() {
   const path = window.location.pathname;
   // Vista para invitados: "landing" (marketplace público) o "login".
   const [authView, setAuthView] = useState<"landing" | "login">("landing");
-  // Si venimos de una landing de rubro, abrimos directo el registro.
-  useEffect(() => {
-    try { if (localStorage.getItem("turno_signup")) { setAuthView("login"); localStorage.removeItem("turno_signup"); } } catch { /* ignore */ }
-  }, []);
   // El superadmin puede alternar entre su panel, gestionar su propio negocio, o ver como cliente.
   const [modoSuper, setModoSuper] = useState<"panel" | "negocio" | "cliente">("panel");
 
@@ -84,21 +61,6 @@ export default function App() {
   const verMatch = path.match(/^\/verificar\/(.+)$/);
   if (verMatch) {
     return (<><Header /><VerificarEmail token={verMatch[1]} /></>);
-  }
-
-  // Tienda online pública (/tienda/:slug).
-  const tiendaMatch = path.match(/^\/tienda\/(.+)$/);
-  if (tiendaMatch) {
-    return (<><Header><LangToggle /></Header><Storefront slug={tiendaMatch[1]} /><Footer /></>);
-  }
-
-  // Hub de soluciones por rubro y landings por rubro (marketing B2B).
-  if (path === "/soluciones") {
-    return (<><Header><div className="row"><LangToggle /><button className="primary small" onClick={() => irARegistro("")}>{t("pub.signUp")}</button></div></Header><Soluciones /><Footer /></>);
-  }
-  const paraMatch = path.match(/^\/para\/(.+)$/);
-  if (paraMatch) {
-    return (<><Header><div className="row"><LangToggle /><a className="ghost small" href="/soluciones" style={{ padding: "6px 10px" }}>Soluciones</a></div></Header><VerticalLanding slug={paraMatch[1]} onRegistrar={irARegistro} /><Footer /></>);
   }
 
   // Rutas legales públicas.
@@ -135,17 +97,12 @@ export default function App() {
         <Header>
           <div className="row">
             <LangToggle />
-            {!RUBRO_FIJO && <a className="ghost small" href="/soluciones" style={{ padding: "6px 10px" }}>Soluciones</a>}
             <a className="ghost small" href="/precios" style={{ padding: "6px 10px" }}>{t("pub.pricing")}</a>
             <button className="ghost small" onClick={() => setAuthView("login")}>{t("pub.signIn")}</button>
-            <button className="primary small" onClick={() => (RUBRO_FIJO ? irARegistro(RUBRO_FIJO) : setAuthView("login"))}>{t("pub.signUp")}</button>
+            <button className="primary small" onClick={() => setAuthView("login")}>{t("pub.signUp")}</button>
           </div>
         </Header>
-        {RUBRO_FIJO
-          ? <VerticalLanding slug={RUBRO_FIJO} onRegistrar={irARegistro} />
-          : path === "/reservas"
-            ? <PublicLanding onReservar={() => setAuthView("login")} />
-            : <PlatformHome onNegocio={() => window.location.assign("/soluciones")} onReservar={() => window.location.assign("/reservas")} />}
+        <PublicLanding onReservar={() => setAuthView("login")} />
         <Footer /><CookieConsent />
       </>
     );

@@ -1,17 +1,8 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, assetUrl, descargarCSV, type Negocio, type Perfil } from "../api";
+import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, type Negocio } from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
-import { PrestamosView } from "./PrestamosView";
-import { ComercioView } from "./ComercioView";
-import { AgroView } from "./AgroView";
-import { MesasView } from "./MesasView";
-import { ServiceOrdersView } from "./ServiceOrdersView";
-import { GastosView } from "./GastosView";
-import { ClientesView } from "./ClientesView";
-import { ComprasView } from "./ComprasView";
-import { ImpuestosView } from "./ImpuestosView";
 
 interface Miembro {
   id: number;
@@ -55,30 +46,10 @@ export function AdminView() {
 
 function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   const { t } = useT();
-  const [form, setForm] = useState({ nombreComercial: "", direccion: "", telefonoContacto: "" });
+  const [form, setForm] = useState({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
-  const [perfiles, setPerfiles] = useState<Perfil[]>([]);
-  const [moduloLabels, setModuloLabels] = useState<Record<string, string>>({});
-  const [disponibles, setDisponibles] = useState<string[]>([]);
-  // Preselecciona el rubro si el usuario llegó desde una landing por rubro.
-  const [perfilSel, setPerfilSel] = useState(() => {
-    try { const p = localStorage.getItem("turno_perfil_preferido"); if (p) { localStorage.removeItem("turno_perfil_preferido"); return p; } } catch { /* ignore */ }
-    return "";
-  });
-
-  // Catálogo de rubros (motor de nicho). En modo "rubro fijo" llega uno solo → se auto-selecciona.
-  useEffect(() => {
-    api.get<{ perfiles: Perfil[]; moduloLabels: Record<string, string>; modulosDisponibles: string[] }>("/perfiles")
-      .then((r) => {
-        setPerfiles(r.perfiles); setModuloLabels(r.moduloLabels); setDisponibles(r.modulosDisponibles);
-        if (r.perfiles.length === 1) setPerfilSel((s) => s || r.perfiles[0].slug);
-      })
-      .catch(() => {});
-  }, []);
-
-  const perfilObj = perfiles.find((p) => p.slug === perfilSel);
 
   function usarUbicacion() {
     if (!navigator.geolocation) return;
@@ -92,12 +63,10 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
-    if (!perfilSel) { setMsg(t("own.pickBusinessFirst")); return; }
     try {
-      // El rubro elegido activa sus módulos; también sirve de categoría en el directorio.
-      await api.post("/negocios", { ...form, perfil: perfilSel, categoria: perfilSel, ...(coords ?? {}) });
-      setForm({ nombreComercial: "", direccion: "", telefonoContacto: "" });
-      setPerfilSel(""); setCoords(null);
+      await api.post("/negocios", { ...form, ...(coords ?? {}) });
+      setForm({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+      setCoords(null);
       setMsg(t("own.created"));
       onCreado();
     } catch (err) {
@@ -108,47 +77,13 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   return (
     <div className="card">
       <h2>{t("own.createBusiness")}</h2>
-
-      {/* Paso 1: elegir el rubro → activa sus módulos */}
-      <label>{t("own.whatBusiness")}</label>
-      <p className="muted small" style={{ margin: "0 0 10px" }}>{t("own.whatBusinessHelp")}</p>
-      <div className="rubro-grid">
-        {perfiles.map((p) => (
-          <button
-            type="button"
-            key={p.slug}
-            className={`rubro-card ${perfilSel === p.slug ? "on" : ""}`}
-            onClick={() => setPerfilSel(p.slug)}
-            title={p.descripcion}
-          >
-            <span className="rubro-emoji">{p.emoji}</span>
-            <span className="rubro-name">{p.nombre}</span>
-          </button>
-        ))}
-      </div>
-
-      {perfilObj && (
-        <div className="card pop" style={{ background: "var(--surface-2)", marginTop: 12, borderColor: "var(--brand-600)" }}>
-          <p className="small muted" style={{ margin: "0 0 8px" }}>{perfilObj.descripcion}</p>
-          <strong className="small">{t("own.modulesActivated")}</strong>
-          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-            {perfilObj.modulos.map((m) => {
-              const ok = disponibles.includes(m);
-              return (
-                <span key={m} className={`badge ${ok ? "ok" : ""}`} title={ok ? t("own.available") : t("own.soon")}>
-                  {ok ? "✓" : "🔜"} {moduloLabels[m] ?? m}
-                </span>
-              );
-            })}
-          </div>
-          <p className="muted small" style={{ margin: "8px 0 0" }}>✓ {t("own.available")} · 🔜 {t("own.soon")}</p>
-        </div>
-      )}
-
-      {/* Paso 2: datos del negocio */}
       <form onSubmit={crear}>
         <label>{t("own.commercialName")}</label>
         <input value={form.nombreComercial} onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })} required />
+        <label>{t("own.type")}</label>
+        <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+          {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
         <label>{t("own.address")}</label>
         <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
         <label>{t("own.locationLabel")}</label>
@@ -160,26 +95,9 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
         </div>
         <label>{t("own.phone")}</label>
         <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
-        <button className="primary" style={{ marginTop: 12 }} disabled={!perfilSel}>{t("own.create")}</button>
+        <button className="primary" style={{ marginTop: 12 }}>{t("own.create")}</button>
       </form>
       {msg && <p className="success">{msg}</p>}
-    </div>
-  );
-}
-
-// Tienda online: enlace público para compartir (módulo storefront).
-function TiendaLink({ slug }: { slug: string }) {
-  const url = `${window.location.origin}/tienda/${slug}`;
-  const [copiado, setCopiado] = useState(false);
-  return (
-    <div className="card">
-      <h2>🛍️ Tienda online</h2>
-      <p className="muted small">Comparte este enlace: tus clientes ven tu catálogo y te piden por WhatsApp.</p>
-      <div className="row" style={{ marginTop: 8 }}>
-        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
-        <button className="ghost" onClick={() => { navigator.clipboard?.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 1500); }}>{copiado ? "¡Copiado!" : "Copiar"}</button>
-        <a href={url} target="_blank" rel="noreferrer"><button className="ghost">Abrir</button></a>
-      </div>
     </div>
   );
 }
@@ -190,14 +108,6 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
   const [activos, setActivos] = useState(0);
   const [limite, setLimite] = useState(5);
   const [error, setError] = useState("");
-  // Módulos activos del negocio según su rubro (motor de nicho).
-  const [modulos, setModulos] = useState<string[]>([]);
-  useEffect(() => {
-    if (!negocio.perfil) { setModulos([]); return; }
-    api.get<{ perfiles: Perfil[] }>("/perfiles")
-      .then((r) => setModulos(r.perfiles.find((p) => p.slug === negocio.perfil)?.modulos ?? []))
-      .catch(() => {});
-  }, [negocio.perfil]);
 
   function cargar() {
     api
@@ -256,18 +166,6 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
         {pendientes.length === 0 && <p className="muted small">{t("own.noPending")}</p>}
         {activos >= limite && pendientes.length > 0 && <p className="error">{t("own.limitReached")}</p>}
       </div>
-
-      {/* Módulos del motor de nicho, activados según el rubro */}
-      {modulos.includes("lending") && <PrestamosView negocio={negocio} />}
-      {modulos.includes("pos") && <ComercioView negocio={negocio} />}
-      {modulos.includes("agro") && <AgroView negocio={negocio} />}
-      {modulos.includes("tables") && <MesasView negocio={negocio} />}
-      {modulos.includes("service_orders") && <ServiceOrdersView negocio={negocio} />}
-      {modulos.includes("purchasing") && <ComprasView negocio={negocio} />}
-      {modulos.includes("customers") && <ClientesView negocio={negocio} loyalty={modulos.includes("loyalty")} />}
-      {modulos.includes("expenses") && <GastosView negocio={negocio} />}
-      {modulos.includes("taxes") && <ImpuestosView negocio={negocio} />}
-      {modulos.includes("storefront") && <TiendaLink slug={negocio.slug} />}
 
       <Ubicacion negocio={negocio} />
       <ImagenNegocio negocioId={negocio.id} tipo="cover" />

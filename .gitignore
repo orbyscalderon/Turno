@@ -40,3 +40,7 @@ backend/prisma/*.db
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Caché de build de TypeScript
+*.tsbuildinfo
+**/*.tsbuildinfo

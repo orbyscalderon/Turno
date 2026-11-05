@@ -7,6 +7,7 @@ on:
 
 jobs:
   backend:
+    name: Backend (lint + tipos + tests)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -22,8 +23,10 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/turno_test?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/turno_test?schema=public"
       JWT_SECRET: "ci-secret-suficientemente-largo-1234567890"
       NODE_ENV: test
+      TIMEZONE_DEFECTO: Europe/Madrid
     defaults:
       run:
         working-directory: backend
@@ -32,13 +35,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx prisma migrate deploy
       - run: npx prisma db seed
-      - run: npx tsc --noEmit
-      - run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npm test
 
   frontend:
+    name: Frontend (lint + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,5 +58,97 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Build (incluye comprobación de tipos)
+        run: npm run build
+
+  e2e:
+    name: E2E de navegador (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: turno_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/turno_e2e?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/turno_e2e?schema=public"
+      JWT_SECRET: "e2e-secret-suficientemente-largo-1234567890"
+      NODE_ENV: development
+      PORT: 4000
+      FRONTEND_ORIGIN: "http://localhost:5173"
+      APP_URL: "http://localhost:5173"
+      PAYMENT_PROVIDER: mock
+      EMAIL_TRANSPORT: dev
+      TIMEZONE_DEFECTO: Europe/Madrid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Preparar backend
+        working-directory: backend
+        run: |
+          npm ci
+          npx prisma migrate deploy
+          npx prisma db seed
+
+      - name: Arrancar la API
+        working-directory: backend
+        run: |
+          npm run build
+          node dist/server.js &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4000/api/health && break
+            sleep 1
+          done
+
+      - name: Preparar y arrancar el frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          npx vite preview --port 5173 --host &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5173 && break
+            sleep 1
+          done
+
+      - name: Instalar navegador
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar E2E
+        working-directory: frontend
+        run: npx playwright test
+
+      - name: Subir informe si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+  docker:
+    name: Imágenes Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir imagen del backend
+        run: docker build -f backend/Dockerfile -t turno-api:ci backend
+      - name: Construir imagen del frontend
+        run: docker build -f frontend/Dockerfile -t turno-web:ci frontend

@@ -226,7 +226,7 @@ function Servicios() {
     cargar();
   }
 
-  const activos = servicios.filter((s) => (s as any).activo !== false);
+  const activos = servicios.filter((s) => s.activo !== false);
 
   return (
     <div>
@@ -352,27 +352,204 @@ function Horarios() {
   );
 }
 
-function Agenda() {
+interface CitaAgenda {
+  id: number;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  estadoCita: string;
+  pagoReservaStatus: string;
+  codigoValidacion: string;
+  cliente: { nombre: string; telefono?: string };
+  servicio: { nombreServicio: string; duracionMinutos: number };
+}
+
+/**
+ * Validación del código del cliente en el local.
+ *
+ * Es la pieza que faltaba por completo: ninguna cita llegaba nunca al estado
+ * "completada", así que el cliente no podía dejar reseña y la analítica de
+ * ingresos del negocio salía siempre a cero.
+ */
+function ValidarCodigo({ onValidado }: { onValidado: () => void }) {
   const { t } = useT();
-  const [reservas, setReservas] = useState<any[]>([]);
-  useEffect(() => {
-    const hoy = new Date().toISOString().slice(0, 10);
-    api.get<{ reservas: any[] }>(`/reservas/agenda?desde=${hoy}`).then((r) => setReservas(r.reservas));
-  }, []);
+  const [codigo, setCodigo] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [ok, setOk] = useState("");
+  const [error, setError] = useState("");
+
+  async function validar() {
+    if (codigo.trim().length < 4) return;
+    setCargando(true);
+    setOk("");
+    setError("");
+    try {
+      const r = await api.post<{
+        yaCompletada: boolean;
+        reserva: { cliente: string; servicio: string; fecha: string; horaInicio: string };
+      }>("/reservas/validar", { codigo: codigo.trim() });
+      setOk(
+        `${r.yaCompletada ? t("close.already") : t("close.validated")} — ${r.reserva.cliente} · ${r.reserva.servicio} · ${r.reserva.fecha} ${r.reserva.horaInicio}`,
+      );
+      setCodigo("");
+      onValidado();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t("close.invalid"));
+    } finally {
+      setCargando(false);
+    }
+  }
 
   return (
-    <div className="card">
-      <h2>{t("pro.upcomingAppts")}</h2>
-      {reservas.length === 0 && <Empty emoji="📅">{t("pro.noAppts")}</Empty>}
-      {reservas.map((r) => (
-        <div className="list-item" key={r.id}>
-          <div>
-            <h3>{r.servicio.nombreServicio}</h3>
-            <span className="muted small">{new Date(r.fecha).toISOString().slice(0, 10)} · {r.horaInicio}–{r.horaFin} · {r.cliente.nombre}</span>
-          </div>
-          <span className={`badge ${r.estadoCita === "confirmada" ? "ok" : "warn"}`}>{r.estadoCita}</span>
+    <div className="card" style={{ borderColor: "var(--brand-600)" }}>
+      <h2>{t("close.title")}</h2>
+      <p className="small muted">{t("close.help")}</p>
+      <div className="row" style={{ gap: 8, marginTop: 8 }}>
+        <input
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && validar()}
+          placeholder={t("close.codePlaceholder")}
+          maxLength={12}
+          style={{ textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}
+        />
+        <button className="primary" onClick={validar} disabled={cargando || codigo.trim().length < 4}>
+          {cargando ? t("pay.processing") : t("close.validate")}
+        </button>
+      </div>
+      {ok && <p className="success small">{ok}</p>}
+      {error && <p className="error small">{error}</p>}
+    </div>
+  );
+}
+
+function Agenda() {
+  const { t } = useT();
+  const [reservas, setReservas] = useState<CitaAgenda[]>([]);
+  const [zona, setZona] = useState("");
+  const [cancelando, setCancelando] = useState<number | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [aviso, setAviso] = useState("");
+
+  function cargar() {
+    const hoy = new Date().toISOString().slice(0, 10);
+    api
+      .get<{ reservas: CitaAgenda[]; timezone: string }>(`/reservas/agenda?desde=${hoy}`)
+      .then((r) => {
+        setReservas(r.reservas);
+        setZona(r.timezone);
+      })
+      .catch(() => {});
+  }
+  useEffect(cargar, []);
+
+  async function completar(id: number) {
+    setAviso("");
+    try {
+      await api.patch(`/reservas/${id}/completar`);
+      setAviso(t("close.validated"));
+      cargar();
+    } catch (e) {
+      setAviso(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  async function noAsistio(id: number) {
+    if (!window.confirm(t("close.noShowConfirm"))) return;
+    setAviso("");
+    try {
+      await api.patch(`/reservas/${id}/no-asistio`);
+      cargar();
+    } catch (e) {
+      setAviso(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  async function cancelarNegocio(id: number) {
+    setAviso("");
+    try {
+      await api.patch(`/reservas/${id}/cancelar-negocio`, { motivo: motivo.trim() || undefined });
+      setAviso(t("close.cancelled"));
+      setCancelando(null);
+      setMotivo("");
+      cargar();
+    } catch (e) {
+      setAviso(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <ValidarCodigo onValidado={cargar} />
+
+      <div className="card">
+        <div className="row spread">
+          <h2>{t("pro.upcomingAppts")}</h2>
+          {zona && <span className="badge">{zona}</span>}
         </div>
-      ))}
+        {aviso && <p className="success small">{aviso}</p>}
+        {reservas.length === 0 && <Empty emoji="📅">{t("pro.noAppts")}</Empty>}
+        {reservas.map((r) => (
+          <div key={r.id} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0" }}>
+            <div className="row spread">
+              <div>
+                <h3 style={{ margin: 0 }}>{r.servicio.nombreServicio}</h3>
+                <span className="muted small">
+                  {r.fecha} · {r.horaInicio}–{r.horaFin} · {r.cliente.nombre}
+                  {r.cliente.telefono ? ` · ${r.cliente.telefono}` : ""}
+                </span>
+              </div>
+              <div className="row" style={{ gap: 6 }}>
+                {r.pagoReservaStatus === "pendiente" && (
+                  <span className="badge warn">{t("close.pendingPayment")}</span>
+                )}
+                <span className={`badge ${r.estadoCita === "cancelada" || r.estadoCita === "no_asistio" ? "warn" : "ok"}`}>
+                  {r.estadoCita}
+                </span>
+              </div>
+            </div>
+
+            {/* Acciones de cierre: solo con la cita viva. */}
+            {r.estadoCita === "confirmada" && (
+              <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                <code className="small faint">{r.codigoValidacion}</code>
+                <button
+                  className="primary small"
+                  onClick={() => completar(r.id)}
+                  disabled={r.pagoReservaStatus === "pendiente"}
+                >
+                  {t("close.complete")}
+                </button>
+                <button className="ghost small" onClick={() => noAsistio(r.id)}>
+                  {t("close.noShow")}
+                </button>
+                <button
+                  className="ghost small"
+                  onClick={() => setCancelando(cancelando === r.id ? null : r.id)}
+                >
+                  {t("close.cancelBiz")}
+                </button>
+              </div>
+            )}
+
+            {cancelando === r.id && (
+              <div className="card" style={{ marginTop: 8 }}>
+                <label>{t("close.cancelReason")}</label>
+                <input value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200} />
+                <p className="small warn">{t("close.cancelConfirm")}</p>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="primary small" onClick={() => cancelarNegocio(r.id)}>
+                    {t("close.cancelBiz")}
+                  </button>
+                  <button className="ghost small" onClick={() => setCancelando(null)}>
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

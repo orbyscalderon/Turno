@@ -35,7 +35,7 @@ const servicioSchema = z.object({
 serviciosRouter.post(
   "/",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const data = servicioSchema.parse(req.body);
     const servicio = await prisma.servicio.create({
@@ -48,7 +48,7 @@ serviciosRouter.post(
 serviciosRouter.get(
   "/mios",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const servicios = await prisma.servicio.findMany({
       where: { peluqueroId: req.user!.sub },
@@ -61,7 +61,7 @@ serviciosRouter.get(
 serviciosRouter.put(
   "/:id",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const data = servicioSchema.partial().extend({ activo: z.boolean().optional() }).parse(req.body);
@@ -78,7 +78,7 @@ serviciosRouter.put(
 serviciosRouter.delete(
   "/:id",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const existente = await prisma.servicio.findUnique({ where: { id } });

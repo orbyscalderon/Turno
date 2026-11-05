@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, type Negocio } from "../api";
+import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, TIMEZONES, zonaDelNavegador, type Negocio } from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
 import { MapaUbicacion } from "./MapaUbicacion";
@@ -46,7 +46,16 @@ export function AdminView() {
 
 function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   const { t } = useT();
-  const [form, setForm] = useState({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+  // La zona horaria se preselecciona con la del navegador: es el valor correcto
+  // en el 99% de los casos y evita que el negocio herede la del servidor.
+  const vacio = {
+    nombreComercial: "",
+    categoria: "barberia",
+    direccion: "",
+    telefonoContacto: "",
+    timezone: zonaDelNavegador(),
+  };
+  const [form, setForm] = useState(vacio);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
@@ -65,7 +74,7 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     setMsg("");
     try {
       await api.post("/negocios", { ...form, ...(coords ?? {}) });
-      setForm({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+      setForm(vacio);
       setCoords(null);
       setMsg(t("own.created"));
       onCreado();
@@ -95,6 +104,13 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
         </div>
         <label>{t("own.phone")}</label>
         <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
+        <label>{t("biz.timezone")}</label>
+        <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
+          {(TIMEZONES.includes(form.timezone) ? TIMEZONES : [form.timezone, ...TIMEZONES]).map((tz) => (
+            <option key={tz} value={tz}>{tz}</option>
+          ))}
+        </select>
+        <p className="muted small">{t("biz.timezoneHelp")}</p>
         <button className="primary" style={{ marginTop: 12 }}>{t("own.create")}</button>
       </form>
       {msg && <p className="success">{msg}</p>}
@@ -108,6 +124,7 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
   const [activos, setActivos] = useState(0);
   const [limite, setLimite] = useState(5);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
 
   function cargar() {
     api
@@ -121,6 +138,22 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
     setError("");
     try {
       await api.patch(`/negocios/${negocio.id}/equipo/${solicitudId}`, { decision });
+      cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("common.error"));
+    }
+  }
+
+  // Baja definitiva del profesional: libera su plaza del plan y cancela sus citas
+  // futuras avisando a los clientes (antes no había forma de sacar a nadie).
+  async function darDeBaja(miembroId: number) {
+    if (!window.confirm(t("biz.removeMemberConfirm"))) return;
+    setError("");
+    try {
+      const r = await api.del<{ citasCanceladas: number }>(
+        `/negocios/${negocio.id}/equipo/${miembroId}`,
+      );
+      setAviso(t("biz.memberRemoved", { n: r.citasCanceladas }));
       cargar();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("common.error"));
@@ -143,10 +176,16 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
           <span className={`badge ${activos >= limite ? "err" : "ok"}`}>{activos} / {limite} {t("own.professionals")}</span>
         </div>
         {error && <p className="error">{error}</p>}
+        {aviso && <p className="success small">{aviso}</p>}
         {equipo.map((m) => (
           <div className="list-item" key={m.id}>
             <div><h3>{m.usuario.nombre}</h3><span className="muted small">{m.usuario.email}</span></div>
-            <button className="ghost" onClick={() => decidir(m.id, "rechazado")}>{t("own.remove")}</button>
+            <div className="row" style={{ gap: 6 }}>
+              {/* "Rechazar" solo le quita el alta; la baja real libera la plaza del
+                  plan y cancela (con reembolso) las citas futuras del profesional. */}
+              <button className="ghost small" onClick={() => decidir(m.id, "rechazado")}>{t("own.remove")}</button>
+              <button className="ghost small" onClick={() => darDeBaja(m.id)}>{t("biz.removeMember")}</button>
+            </div>
           </div>
         ))}
         {equipo.length === 0 && <p className="muted small">{t("own.noActivePros")}</p>}
@@ -307,7 +346,16 @@ function Invitacion({ negocioId }: { negocioId: string }) {
 }
 
 interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; maxNegocios: number; maxPeluqueros: number; }
-interface EstadoSub { estadoSuscripcion: string; plan: string | null; intervaloPlan: string | null; suscripcionHasta: string | null; }
+interface EstadoSub {
+  estadoSuscripcion: string;
+  plan: string | null;
+  intervaloPlan: string | null;
+  suscripcionHasta: string | null;
+  // Estado efectivo: la FECHA manda sobre el enum (una prueba caducada no es vigente).
+  vigente?: boolean;
+  diasRestantes?: number | null;
+  tienePortal?: boolean;
+}
 
 function Suscripcion({ negocioId }: { negocioId: string }) {
   const { t } = useT();
@@ -329,16 +377,62 @@ function Suscripcion({ negocioId }: { negocioId: string }) {
     else { setMsg(r.mensaje ?? "OK"); cargar(); }
   }
 
+  // Portal de Stripe: cambiar de plan, actualizar tarjeta, facturas y cancelar.
+  // Sin esto el negocio no tenía ninguna forma de gestionar su propio pago.
+  async function abrirPortal() {
+    setMsg("");
+    try {
+      const r = await api.post<{ portalUrl: string | null; mensaje?: string }>("/suscripcion/portal", { negocioId });
+      if (r.portalUrl) window.location.href = r.portalUrl;
+      else setMsg(r.mensaje ?? "");
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  async function cancelar() {
+    if (!window.confirm(t("sub.cancelConfirm"))) return;
+    setMsg("");
+    try {
+      const r = await api.post<{ mensaje: string }>("/suscripcion/cancelar", { negocioId });
+      setMsg(r.mensaje);
+      cargar();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  const dias = estado?.diasRestantes ?? null;
+
   return (
     <div className="card">
       <h2>{t("own.subscription")}</h2>
       {estado && (
         <p className="small">
-          {t("own.subStatus")}: <span className={`badge ${estado.estadoSuscripcion === "activo" ? "ok" : estado.estadoSuscripcion === "vencido" ? "err" : "warn"}`}>{estado.estadoSuscripcion}</span>
+          {t("own.subStatus")}: <span className={`badge ${estado.vigente === false ? "err" : estado.estadoSuscripcion === "activo" ? "ok" : "warn"}`}>{estado.estadoSuscripcion}</span>
           {estado.plan && <> · {t("own.currentPlan")}: <strong>{estado.plan}</strong> ({estado.intervaloPlan})</>}
           {estado.suscripcionHasta && <> · {t("own.subUntil")} {new Date(estado.suscripcionHasta).toLocaleDateString()}</>}
+          {dias != null && dias >= 0 && <> · {t("sub.daysLeft", { dias })}</>}
         </p>
       )}
+
+      {/* Avisos de vigencia: antes la fecha de fin se ignoraba por completo. */}
+      {estado?.vigente === false && <p className="error small">{t("sub.expired")}</p>}
+      {estado?.vigente && dias != null && dias <= 7 && (
+        <p className="small warn">{t("sub.expiringSoon", { dias })}</p>
+      )}
+
+      {/* Autogestión de la facturación */}
+      <div className="row" style={{ gap: 8, margin: "8px 0" }}>
+        {estado?.tienePortal && (
+          <button className="ghost small" onClick={abrirPortal} title={t("sub.manageHelp")}>
+            {t("sub.manage")}
+          </button>
+        )}
+        {estado?.plan && estado?.vigente && (
+          <button className="ghost small" onClick={cancelar}>{t("sub.cancel")}</button>
+        )}
+      </div>
 
       {/* Toggle mensual / anual */}
       <div className="lang-toggle" style={{ margin: "10px 0 16px" }}>
@@ -387,6 +481,7 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
   );
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
+  const [timezone, setTimezone] = useState(negocio.timezone ?? zonaDelNavegador());
 
   function usarUbicacion() {
     if (!navigator.geolocation) return;
@@ -400,7 +495,7 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
   async function guardar() {
     setMsg("");
     try {
-      await api.patch(`/negocios/${negocio.id}`, { direccion, ...(coords ?? {}) });
+      await api.patch(`/negocios/${negocio.id}`, { direccion, timezone, ...(coords ?? {}) });
       setMsg(t("own.locationSaved"));
     } catch (err) {
       setMsg(err instanceof ApiError ? err.message : t("common.error"));
@@ -413,6 +508,16 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
       <p className="muted small">{t("own.locationHelp")}</p>
       <label>{t("own.address")}</label>
       <input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+
+      {/* Zona horaria: de ella dependen los huecos, la agenda y los recordatorios.
+          Antes el campo existía en la base de datos pero no se usaba en ningún sitio. */}
+      <label style={{ marginTop: 10 }}>{t("biz.timezone")}</label>
+      <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+        {TIMEZONES.map((tz) => (
+          <option key={tz} value={tz}>{tz}</option>
+        ))}
+      </select>
+      <p className="muted small">{t("biz.timezoneHelp")}</p>
 
       <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
 

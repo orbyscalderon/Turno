@@ -69,11 +69,11 @@ describe("E2E: reservar → pagar → historial → cancelar", () => {
 
     // El slot ya no está libre (anti-colisión)
     const slots2 = await request(app).get(`/api/reservas/slots?peluqueroId=${peluqueroId}&servicioId=${servicioId}&fecha=${fecha}`);
-    expect(slots2.body.slots.some((s: any) => s.inicio === horaInicio)).toBe(false);
+    expect(slots2.body.slots.some((s: { inicio: string }) => s.inicio === horaInicio)).toBe(false);
 
     // Aparece en el historial como pagada + confirmada
     const mias = await request(app).get("/api/reservas/mias").set("Authorization", `Bearer ${token}`);
-    const r = mias.body.reservas.find((x: any) => x.id === reservaId);
+    const r = mias.body.reservas.find((x: { id: number }) => x.id === reservaId);
     expect(r).toBeTruthy();
     expect(r.pagoReservaStatus).toBe("pagado");
     expect(r.whatsappUrl).toContain("wa.me");

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import request from "supertest";
 import { crearApp } from "../src/app.js";
 import { prisma } from "../src/lib/prisma.js";
@@ -77,7 +77,7 @@ describe("negocios (integración)", () => {
     expect(res.status).toBe(200);
     // El primero debería tener distancia definida (si hay negocios con coords).
     if (res.body.negocios.length > 0 && res.body.negocios[0].distanciaKm != null) {
-      const d = res.body.negocios.map((n: any) => n.distanciaKm ?? Infinity);
+      const d = res.body.negocios.map((n: { distanciaKm?: number }) => n.distanciaKm ?? Infinity);
       const ordenado = [...d].sort((a, b) => a - b);
       expect(d).toEqual(ordenado);
     }

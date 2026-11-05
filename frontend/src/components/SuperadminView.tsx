@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useT } from "../i18n";
-import { Stat, Empty, SkeletonCards } from "./Ui";
+import { Stat, Empty } from "./Ui";
 
 interface Metricas {
   negocios: number;

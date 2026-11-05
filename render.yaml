@@ -1,5 +1,9 @@
 # Despliegue en Render.com (Blueprint). Crea BD + backend + frontend estático.
 # Uso: en Render → New → Blueprint → apunta a este repo.
+#
+# IMPORTANTE: las claves reales (Stripe, SMTP) se rellenan en el panel de Render
+# después del primer despliegue. Todas las variables marcadas con `sync: false`
+# se piden al crear el Blueprint y NO se guardan en el repositorio.
 databases:
   - name: turno-db
     databaseName: turno
@@ -14,9 +18,14 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/live
     envVars:
       - key: DATABASE_URL
+        fromDatabase:
+          name: turno-db
+          property: connectionString
+      # Prisma usa DIRECT_URL para las migraciones (sin pooler).
+      - key: DIRECT_URL
         fromDatabase:
           name: turno-db
           property: connectionString
@@ -26,20 +35,76 @@ services:
         value: 4000
       - key: JWT_SECRET
         generateValue: true
+      # Tokens de acceso cortos: un baneo o un cambio de contraseña surten efecto
+      # en una hora como máximo (el refresh token sí se revoca al instante).
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      # OJO: `property: host` devuelve el host SIN esquema ("turno-web.onrender.com"),
+      # y eso rompía CORS y dejaba inservibles los enlaces de los emails de
+      # verificación y de recuperación de contraseña. Aquí va la URL COMPLETA.
       - key: FRONTEND_ORIGIN
-        fromService:
-          type: web
-          name: turno-web
-          property: host
+        value: https://turno-web.onrender.com
       - key: APP_URL
-        fromService:
-          type: web
-          name: turno-web
-          property: host
+        value: https://turno-web.onrender.com
+      # Zona horaria por defecto de los negocios nuevos (cada uno puede cambiarla).
+      - key: TIMEZONE_DEFECTO
+        value: Europe/Madrid
+      - key: EXIGIR_EMAIL_VERIFICADO
+        value: "true"
+      # --- Cobros: sin estas claves el backend NO arranca en producción ---
+      # (es deliberado: con PAYMENT_PROVIDER=mock las fianzas y las suscripciones
+      #  no se cobrarían y el SaaS sería gratis sin que nadie se diera cuenta).
       - key: PAYMENT_PROVIDER
-        value: mock          # cambia a "stripe" y añade STRIPE_* para cobrar de verdad
+        value: stripe
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET_PAGOS
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET_SUSCRIPCION
+        sync: false
+      - key: STRIPE_PRICE_BASICO_MENSUAL
+        sync: false
+      - key: STRIPE_PRICE_BASICO_ANUAL
+        sync: false
+      - key: STRIPE_PRICE_PRO_MENSUAL
+        sync: false
+      - key: STRIPE_PRICE_PRO_ANUAL
+        sync: false
+      # --- Emails reales ---
       - key: EMAIL_TRANSPORT
-        value: dev           # cambia a "smtp" y añade SMTP_* para enviar emails
+        value: smtp
+      - key: EMAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      # --- Primer superadmin (se crea solo al arrancar, una vez) ---
+      - key: SUPERADMIN_EMAIL
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false
+      # --- Observabilidad (opcional) ---
+      - key: SENTRY_DSN
+        sync: false
+      # --- Almacenamiento de imágenes ---
+      # El disco de Render es efímero: en producción usa S3/R2/B2.
+      - key: STORAGE_PROVIDER
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
 
   # Frontend estático (build de Vite)
   - type: web
@@ -47,12 +112,27 @@ services:
     runtime: static
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
+    envVars:
+      # El frontend llama a /api/* del mismo dominio (lo reenvía el rewrite de abajo).
+      - key: VITE_API_URL
+        value: ""
+      # Clave PÚBLICA de Stripe: sin ella el cliente no puede pagar la fianza.
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
     routes:
       # Proxy de la API al backend
       - type: rewrite
         source: /api/*
         destination: https://turno-api.onrender.com/api/*
-      # SPA fallback
+      # El sitemap lo genera el backend con los negocios activos.
+      - type: rewrite
+        source: /sitemap.xml
+        destination: https://turno-api.onrender.com/api/sitemap.xml
+      # Imágenes subidas servidas por el backend (modo STORAGE_PROVIDER=local)
+      - type: rewrite
+        source: /uploads/*
+        destination: https://turno-api.onrender.com/uploads/*
+      # SPA fallback (cubre /negocio/:slug, /precios, /reset/:token...)
       - type: rewrite
         source: /*
         destination: /index.html

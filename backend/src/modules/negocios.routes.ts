@@ -11,14 +11,20 @@ import { paginationSchema, paginar, metaPaginacion } from "../lib/pagination.js"
 import { calcularSplitFianza } from "../lib/split.js";
 import { limitePeluqueros, limiteNegocios } from "../lib/planes.js";
 import { SLUGS_PERFIL } from "../config/perfiles.js";
+import { estaVigente, filtroNegocioVigente, diasRestantes } from "../lib/suscripcion.js";
+import { lockNegocio } from "../lib/locks.js";
+import { zonaValida, fechaUTC, fechaISO } from "../lib/time.js";
+import { auditar } from "../lib/audit.js";
 
 export const negociosRouter = Router();
 
 // Verifica que el usuario autenticado sea dueño del negocio indicado.
-async function assertDueno(negocioId: string, usuarioId: number) {
+async function assertDueno(negocioId: string, usuarioId: number, rol?: string) {
   const negocio = await prisma.negocio.findUnique({ where: { id: negocioId } });
   if (!negocio) throw NotFound("Negocio no encontrado");
-  if (negocio.duenoId !== usuarioId) throw Forbidden("No eres dueño de este negocio");
+  if (negocio.duenoId !== usuarioId && rol !== "superadmin") {
+    throw Forbidden("No eres dueño de este negocio");
+  }
   return negocio;
 }
 
@@ -32,68 +38,144 @@ function slugify(texto: string): string {
     .slice(0, 60);
 }
 
-// ---------- Listado público de negocios (solo suscripción activa/prueba y visibles) ----------
+const SELECT_PUBLICO = {
+  id: true,
+  nombreComercial: true,
+  categoria: true,
+  slug: true,
+  direccion: true,
+  telefonoContacto: true,
+  logoUrl: true,
+  coverUrl: true,
+  ratingPromedio: true,
+  ratingConteo: true,
+  lat: true,
+  lng: true,
+} as const;
+
+// ---------- Listado público de negocios (solo suscripción vigente) ----------
 negociosRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
     const ubicacion = typeof req.query.ubicacion === "string" ? req.query.ubicacion.trim() : undefined;
     const categoria = typeof req.query.categoria === "string" ? req.query.categoria : undefined;
-    const lat = req.query.lat ? Number(req.query.lat) : undefined;
-    const lng = req.query.lng ? Number(req.query.lng) : undefined;
-    const geo = lat !== undefined && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng);
+    const lat = req.query.lat !== undefined ? Number(req.query.lat) : undefined;
+    const lng = req.query.lng !== undefined ? Number(req.query.lng) : undefined;
+    const radioKm = Math.min(Math.max(Number(req.query.radioKm ?? 50), 1), 500);
+    const geo =
+      lat !== undefined &&
+      lng !== undefined &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180;
     const { page, limit } = paginationSchema.parse(req.query);
+
+    // --- Búsqueda por cercanía: se resuelve EN LA BASE DE DATOS ---
+    // Antes se cargaban todos los negocios en memoria para ordenarlos por distancia.
+    // Aquí se acota primero con una caja (usa el índice lat/lng) y se calcula la
+    // distancia real en SQL, paginando sin traer el resto de la tabla.
+    if (geo) {
+      const gradosLat = radioKm / 111.32;
+      const cosLat = Math.max(Math.cos((lat! * Math.PI) / 180), 0.01);
+      const gradosLng = radioKm / (111.32 * cosLat);
+
+      const condiciones: Prisma.Sql[] = [
+        Prisma.sql`n.estado_suscripcion IN ('activo','prueba')`,
+        Prisma.sql`(n.suscripcion_hasta IS NULL OR n.suscripcion_hasta > now())`,
+        Prisma.sql`n.lat IS NOT NULL AND n.lng IS NOT NULL`,
+        Prisma.sql`n.lat BETWEEN ${lat! - gradosLat} AND ${lat! + gradosLat}`,
+        Prisma.sql`n.lng BETWEEN ${lng! - gradosLng} AND ${lng! + gradosLng}`,
+      ];
+      if (q) condiciones.push(Prisma.sql`n.nombre_comercial ILIKE ${`%${q}%`}`);
+      if (ubicacion) condiciones.push(Prisma.sql`n.direccion ILIKE ${`%${ubicacion}%`}`);
+      if (categoria) condiciones.push(Prisma.sql`n.categoria = ${categoria}`);
+      const where = Prisma.join(condiciones, " AND ");
+
+      // Haversine en SQL.
+      const distancia = Prisma.sql`
+        6371 * 2 * asin(sqrt(
+          power(sin(radians(n.lat - ${lat!}) / 2), 2) +
+          cos(radians(${lat!})) * cos(radians(n.lat)) *
+          power(sin(radians(n.lng - ${lng!}) / 2), 2)
+        ))`;
+
+      const base = Prisma.sql`
+        FROM negocios n
+        WHERE ${where}`;
+
+      const [filas, totales] = await Promise.all([
+        prisma.$queryRaw<
+          {
+            id: string;
+            nombreComercial: string;
+            categoria: string;
+            slug: string;
+            direccion: string;
+            telefonoContacto: string;
+            logoUrl: string | null;
+            coverUrl: string | null;
+            ratingPromedio: number;
+            ratingConteo: number;
+            lat: number;
+            lng: number;
+            distanciaKm: number;
+          }[]
+        >`
+          SELECT * FROM (
+            SELECT n.id,
+                   n.nombre_comercial   AS "nombreComercial",
+                   n.categoria,
+                   n.slug,
+                   n.direccion,
+                   n.telefono_contacto  AS "telefonoContacto",
+                   n.logo_url           AS "logoUrl",
+                   n.cover_url          AS "coverUrl",
+                   n.rating_promedio    AS "ratingPromedio",
+                   n.rating_conteo      AS "ratingConteo",
+                   n.lat, n.lng,
+                   ${distancia} AS "distanciaKm"
+            ${base}
+          ) t
+          WHERE t."distanciaKm" <= ${radioKm}
+          ORDER BY t."distanciaKm" ASC
+          LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        prisma.$queryRaw<{ total: bigint }[]>`
+          SELECT count(*)::bigint AS total FROM (
+            SELECT ${distancia} AS "distanciaKm" ${base}
+          ) t
+          WHERE t."distanciaKm" <= ${radioKm}`,
+      ]);
+
+      const total = Number(totales[0]?.total ?? 0);
+      return res.json({
+        negocios: filas.map((n) => ({ ...n, distanciaKm: Number(n.distanciaKm.toFixed(2)) })),
+        meta: metaPaginacion(total, page, limit),
+      });
+    }
+
+    // --- Búsqueda normal (sin coordenadas) ---
     const where: Prisma.NegocioWhereInput = {
-      // Regla de negocio: los negocios con suscripción vencida se ocultan al cliente.
-      estadoSuscripcion: { in: ["activo", "prueba"] },
+      // Regla de negocio: los negocios sin suscripción vigente se ocultan al cliente.
+      ...filtroNegocioVigente(),
       ...(q ? { nombreComercial: { contains: q, mode: "insensitive" } } : {}),
-      // Búsqueda por ubicación: filtra por texto de la dirección (ciudad, zona...).
       ...(ubicacion ? { direccion: { contains: ubicacion, mode: "insensitive" } } : {}),
       ...(categoria ? { categoria } : {}),
     };
 
-    const select = {
-      id: true, nombreComercial: true, categoria: true, slug: true,
-      direccion: true, telefonoContacto: true, logoUrl: true, coverUrl: true,
-      ratingPromedio: true, ratingConteo: true, lat: true, lng: true,
-    };
-
-    const total = await prisma.negocio.count({ where });
-
-    // Con geo: traemos todos los que tienen coords, calculamos distancia y ordenamos por cercanía.
-    if (geo) {
-      const todos = await prisma.negocio.findMany({ where, select });
-      const conDist = todos
-        .map((n) => ({
-          ...n,
-          distanciaKm: n.lat != null && n.lng != null ? distanciaKm(lat!, lng!, n.lat, n.lng) : null,
-        }))
-        .sort((a, b) => (a.distanciaKm ?? Infinity) - (b.distanciaKm ?? Infinity))
-        .slice((page - 1) * limit, page * limit)
-        .map((n) => ({ ...n, distanciaKm: n.distanciaKm != null ? Number(n.distanciaKm.toFixed(2)) : null }));
-      return res.json({ negocios: conDist, meta: metaPaginacion(total, page, limit) });
-    }
-
-    const negocios = await prisma.negocio.findMany({
-      where,
-      select,
-      orderBy: [{ ratingPromedio: "desc" }, { nombreComercial: "asc" }],
-      ...paginar(page, limit),
-    });
+    const [total, negocios] = await Promise.all([
+      prisma.negocio.count({ where }),
+      prisma.negocio.findMany({
+        where,
+        select: SELECT_PUBLICO,
+        orderBy: [{ ratingPromedio: "desc" }, { nombreComercial: "asc" }],
+        ...paginar(page, limit),
+      }),
+    ]);
     res.json({ negocios, meta: metaPaginacion(total, page, limit) });
   }),
 );
-
-// Distancia en km entre dos coordenadas (fórmula de Haversine).
-function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 // ---------- Negocios del dueño autenticado (admin_negocio) ----------
 // Debe declararse ANTES de "/:slug" para no ser capturada por esa ruta comodín.
@@ -112,18 +194,30 @@ negociosRouter.get(
         slug: true,
         direccion: true,
         telefonoContacto: true,
+        timezone: true,
         lat: true,
         lng: true,
+        logoUrl: true,
+        coverUrl: true,
+        plan: true,
+        intervaloPlan: true,
         estadoSuscripcion: true,
         suscripcionHasta: true,
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json({ negocios });
+    res.json({
+      negocios: negocios.map((n) => ({
+        ...n,
+        // Estado efectivo: un negocio en "prueba" con la fecha pasada ya NO es vigente.
+        vigente: estaVigente(n),
+        diasRestantes: diasRestantes(n.suscripcionHasta),
+      })),
+    });
   }),
 );
 
-// ---------- Detalle público con peluqueros aceptados ----------
+// ---------- Detalle público con profesionales aceptados ----------
 negociosRouter.get(
   "/:slug",
   asyncHandler(async (req, res) => {
@@ -137,9 +231,14 @@ negociosRouter.get(
         direccion: true,
         telefonoContacto: true,
         logoUrl: true,
+        coverUrl: true,
+        timezone: true,
+        lat: true,
+        lng: true,
         ratingPromedio: true,
         ratingConteo: true,
         estadoSuscripcion: true,
+        suscripcionHasta: true,
         equipo: {
           where: { estadoAprobacion: "aceptado" },
           select: {
@@ -149,9 +248,8 @@ negociosRouter.get(
       },
     });
     if (!negocio) throw NotFound("Negocio no encontrado");
-    if (negocio.estadoSuscripcion === "vencido") {
-      throw NotFound("Negocio no disponible");
-    }
+    // La fecha manda: una prueba caducada deja de ser pública al instante.
+    if (!estaVigente(negocio)) throw NotFound("Negocio no disponible");
 
     const profesionales = negocio.equipo.map((e) => e.usuario);
     res.json({
@@ -163,6 +261,10 @@ negociosRouter.get(
         direccion: negocio.direccion,
         telefonoContacto: negocio.telefonoContacto,
         logoUrl: negocio.logoUrl,
+        coverUrl: negocio.coverUrl,
+        timezone: negocio.timezone,
+        lat: negocio.lat,
+        lng: negocio.lng,
         ratingPromedio: negocio.ratingPromedio,
         ratingConteo: negocio.ratingConteo,
       },
@@ -188,13 +290,20 @@ export const CATEGORIAS = [
   "otro",
 ] as const;
 
+const TIMEZONE = z
+  .string()
+  .max(64)
+  .refine(zonaValida, "Zona horaria IANA no válida (ej. Europe/Madrid, America/Bogota)");
+
 const crearNegocioSchema = z.object({
-  nombreComercial: z.string().min(2).max(150),
-  categoria: z.string().min(2).max(40).default("otro"),
+  nombreComercial: z.string().trim().min(2).max(150),
+  categoria: z.string().trim().min(2).max(40).default("otro"),
   // Rubro del motor de nicho (activa sus módulos). Debe existir en el catálogo.
   perfil: z.enum(SLUGS_PERFIL as [string, ...string[]]).optional(),
-  direccion: z.string().min(3),
-  telefonoContacto: z.string().min(6).max(20),
+  direccion: z.string().trim().min(3),
+  telefonoContacto: z.string().trim().min(6).max(20),
+  // Zona horaria del local: de ella dependen la agenda, los slots y los recordatorios.
+  timezone: TIMEZONE.optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
 });
@@ -208,6 +317,16 @@ negociosRouter.post(
     const duenoId = req.user!.sub;
     // En modo "rubro fijo", todos los negocios de este despliegue son de ese rubro.
     const perfilFinal = env.rubroFijo || data.perfil || null;
+
+    if (env.exigirEmailVerificado) {
+      const yo = await prisma.usuario.findUnique({
+        where: { id: duenoId },
+        select: { emailVerificadoEn: true },
+      });
+      if (!yo?.emailVerificadoEn) {
+        throw Forbidden("Confirma tu email antes de crear un negocio.");
+      }
+    }
 
     // Límite de negocios por dueño según su plan (el superadmin queda exento).
     if (req.user!.rol !== "superadmin") {
@@ -239,6 +358,7 @@ negociosRouter.post(
         perfil: perfilFinal,
         direccion: data.direccion,
         telefonoContacto: data.telefonoContacto,
+        timezone: data.timezone ?? env.timezoneDefecto,
         lat: data.lat,
         lng: data.lng,
         slug,
@@ -260,9 +380,11 @@ negociosRouter.post(
 
 // ---------- Actualizar datos/ubicación del negocio (dueño) ----------
 const actualizarNegocioSchema = z.object({
-  direccion: z.string().min(3).optional(),
-  categoria: z.string().min(2).max(40).optional(),
-  telefonoContacto: z.string().min(6).max(20).optional(),
+  nombreComercial: z.string().trim().min(2).max(150).optional(),
+  direccion: z.string().trim().min(3).optional(),
+  categoria: z.string().trim().min(2).max(40).optional(),
+  telefonoContacto: z.string().trim().min(6).max(20).optional(),
+  timezone: TIMEZONE.optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
 });
@@ -272,7 +394,7 @@ negociosRouter.patch(
   requireAuth,
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
-    await assertDueno(req.params.id, req.user!.sub);
+    await assertDueno(req.params.id, req.user!.sub, req.user!.rol);
     const data = actualizarNegocioSchema.parse(req.body);
     const negocio = await prisma.negocio.update({ where: { id: req.params.id }, data });
     res.json({ negocio });
@@ -319,11 +441,7 @@ negociosRouter.get(
   requireAuth,
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
-    await assertDueno(req.params.id, req.user!.sub);
-    const negocio = await prisma.negocio.findUnique({
-      where: { id: req.params.id },
-      select: { plan: true, estadoSuscripcion: true },
-    });
+    const negocio = await assertDueno(req.params.id, req.user!.sub, req.user!.rol);
     const miembros = await prisma.peluqueroEquipo.findMany({
       where: { negocioId: req.params.id },
       select: {
@@ -335,12 +453,12 @@ negociosRouter.get(
       orderBy: { createdAt: "asc" },
     });
     const activos = miembros.filter((m) => m.estadoAprobacion === "aceptado").length;
-    const limite = limitePeluqueros(negocio?.plan, negocio?.estadoSuscripcion ?? "prueba");
+    const limite = limitePeluqueros(negocio.plan, negocio.estadoSuscripcion);
     res.json({ miembros, activos, limite });
   }),
 );
 
-// ---------- Admin aprueba/rechaza una solicitud (LÍMITE ESTRICTO DE 5) ----------
+// ---------- Admin aprueba/rechaza una solicitud (respetando el límite del plan) ----------
 const decisionSchema = z.object({
   decision: z.enum(["aceptado", "rechazado"]),
 });
@@ -353,13 +471,11 @@ negociosRouter.patch(
     const negocioId = req.params.id;
     const solicitudId = Number(req.params.solicitudId);
     const { decision } = decisionSchema.parse(req.body);
-    await assertDueno(negocioId, req.user!.sub);
+    await assertDueno(negocioId, req.user!.sub, req.user!.rol);
 
-    // Transacción con lock a nivel de negocio para evitar que dos aprobaciones
-    // simultáneas superen el límite de 5 peluqueros activos (condición de carrera).
+    // Lock por negocio para que dos aprobaciones simultáneas no superen el límite.
     const resultado = await prisma.$transaction(async (tx) => {
-      // Serializa las operaciones sobre este negocio bloqueando su fila.
-      await tx.$queryRaw`SELECT id FROM negocios WHERE id = ${negocioId} FOR UPDATE`;
+      await lockNegocio(tx, negocioId);
 
       const negocio = await tx.negocio.findUnique({
         where: { id: negocioId },
@@ -398,6 +514,49 @@ negociosRouter.patch(
   }),
 );
 
+// ---------- Dar de baja a un profesional del equipo ----------
+// No se borran sus citas: se cancela solo lo que queda por delante, para que el
+// cliente no se quede con una cita que nadie va a atender.
+negociosRouter.delete(
+  "/:id/equipo/:miembroId",
+  requireAuth,
+  requireRole("admin_negocio"),
+  asyncHandler(async (req, res) => {
+    const negocioId = req.params.id;
+    const miembroId = Number(req.params.miembroId);
+    const negocio = await assertDueno(negocioId, req.user!.sub, req.user!.rol);
+
+    const miembro = await prisma.peluqueroEquipo.findFirst({
+      where: { id: miembroId, negocioId },
+    });
+    if (!miembro) throw NotFound("Miembro no encontrado");
+    if (miembro.usuarioId === negocio.duenoId) {
+      throw BadRequest("El dueño no puede darse de baja de su propio equipo", "ES_DUENO");
+    }
+
+    const hoy = fechaUTC(fechaISO(new Date()));
+    const [, citas] = await prisma.$transaction([
+      prisma.peluqueroEquipo.delete({ where: { id: miembroId } }),
+      prisma.reservacion.updateMany({
+        where: { peluqueroId: miembro.usuarioId, estadoCita: "confirmada", fecha: { gte: hoy } },
+        data: {
+          estadoCita: "cancelada",
+          canceladaEn: new Date(),
+          canceladaPor: "negocio",
+          motivoCancelacion: "El profesional ya no trabaja en el negocio",
+        },
+      }),
+    ]);
+
+    await auditar(
+      req.user!.sub,
+      "profesional_dado_de_baja",
+      `negocio=${negocioId} usuario=${miembro.usuarioId} citasCanceladas=${citas.count}`,
+    );
+    res.json({ ok: true, citasCanceladas: citas.count });
+  }),
+);
+
 // ---------- Admin genera un link de invitación único ----------
 negociosRouter.post(
   "/:id/invitaciones",
@@ -405,7 +564,7 @@ negociosRouter.post(
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
     const negocioId = req.params.id;
-    await assertDueno(negocioId, req.user!.sub);
+    await assertDueno(negocioId, req.user!.sub, req.user!.rol);
 
     const token = randomBytes(24).toString("base64url");
     const expiraEn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
@@ -447,8 +606,13 @@ negociosRouter.post(
       if (!inv || inv.usadaEn || inv.expiraEn < new Date()) {
         throw NotFound("Invitación inválida o expirada");
       }
-      // Lock del negocio para respetar el límite de 5 al aceptar por invitación.
-      await tx.$queryRaw`SELECT id FROM negocios WHERE id = ${inv.negocioId} FOR UPDATE`;
+      await lockNegocio(tx, inv.negocioId);
+
+      const negocio = await tx.negocio.findUnique({
+        where: { id: inv.negocioId },
+        select: { plan: true, estadoSuscripcion: true },
+      });
+      if (!negocio) throw NotFound("Negocio no encontrado");
 
       const yaMiembro = await tx.peluqueroEquipo.findUnique({
         where: { unique_peluquero_negocio: { negocioId: inv.negocioId, usuarioId } },
@@ -460,8 +624,14 @@ negociosRouter.post(
       const activos = await tx.peluqueroEquipo.count({
         where: { negocioId: inv.negocioId, estadoAprobacion: "aceptado" },
       });
-      if (activos >= env.maxPeluqueros) {
-        throw Conflict(`El negocio ya alcanzó el máximo de ${env.maxPeluqueros} peluqueros`, "LIMITE_PELUQUEROS");
+      // El límite es el DEL PLAN, igual que al aprobar una solicitud: antes esta
+      // ruta usaba un tope fijo de entorno y permitía saltarse el plan Básico.
+      const maxPel = limitePeluqueros(negocio.plan, negocio.estadoSuscripcion);
+      if (activos >= maxPel) {
+        throw Conflict(
+          `El negocio ya alcanzó el máximo de ${maxPel} profesionales de su plan`,
+          "LIMITE_PELUQUEROS",
+        );
       }
 
       // La invitación pre-aprueba al peluquero.
@@ -492,7 +662,7 @@ negociosRouter.get(
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
     const negocioId = req.params.id;
-    await assertDueno(negocioId, req.user!.sub);
+    await assertDueno(negocioId, req.user!.sub, req.user!.rol);
 
     // IDs de los peluqueros aceptados del negocio.
     const equipo = await prisma.peluqueroEquipo.findMany({
@@ -502,33 +672,52 @@ negociosRouter.get(
     const peluqueroIds = equipo.map((e) => e.usuarioId);
 
     if (peluqueroIds.length === 0) {
-      return res.json({ totalReservas: 0, porEstado: [], ingresoServiciosUsd: 0, porPeluquero: [] });
+      return res.json({
+        totalReservas: 0,
+        porEstado: [],
+        ingresoServiciosUsd: 0,
+        ingresoPorMoneda: [],
+        porPeluquero: [],
+      });
     }
 
-    const [porEstado, completadas, reservasPorPeluquero] = await Promise.all([
+    const [porEstado, ingresos, reservasPorPeluquero] = await Promise.all([
       prisma.reservacion.groupBy({
         by: ["estadoCita"],
         where: { peluqueroId: { in: peluqueroIds } },
         _count: true,
       }),
-      prisma.reservacion.findMany({
-        where: { peluqueroId: { in: peluqueroIds }, estadoCita: "completada" },
-        select: { servicio: { select: { precio: true } } },
-      }),
+      // Suma agregada EN SQL: antes se traían todas las citas completadas a memoria.
+      prisma.$queryRaw<{ moneda: string; total: string; n: number }[]>`
+        SELECT s.moneda, SUM(s.precio)::text AS total, COUNT(*)::int AS n
+        FROM reservaciones r
+        JOIN servicios s ON s.id = r.servicio_id
+        WHERE r.peluquero_id IN (${Prisma.join(peluqueroIds)})
+          AND r.estado_cita = 'completada'
+        GROUP BY s.moneda`,
       prisma.reservacion.groupBy({
         by: ["peluqueroId"],
-        where: { peluqueroId: { in: peluqueroIds }, estadoCita: { in: ["confirmada", "completada"] } },
+        where: {
+          peluqueroId: { in: peluqueroIds },
+          estadoCita: { in: ["confirmada", "completada"] },
+        },
         _count: true,
       }),
     ]);
 
-    const ingresoServiciosUsd = completadas.reduce((acc, r) => acc + Number(r.servicio.precio), 0);
     const nombreDe = new Map(equipo.map((e) => [e.usuarioId, e.usuario.nombre]));
+    const ingresoPorMoneda = ingresos.map((i) => ({
+      moneda: i.moneda || "USD",
+      total: Number(Number(i.total).toFixed(2)),
+      citas: i.n,
+    }));
 
     res.json({
       totalReservas: porEstado.reduce((a, e) => a + e._count, 0),
       porEstado: porEstado.map((e) => ({ estado: e.estadoCita, total: e._count })),
-      ingresoServiciosUsd: Number(ingresoServiciosUsd.toFixed(2)),
+      // Compatibilidad: total de la moneda USD (el desglose completo va aparte).
+      ingresoServiciosUsd: ingresoPorMoneda.find((i) => i.moneda === "USD")?.total ?? 0,
+      ingresoPorMoneda,
       porPeluquero: reservasPorPeluquero.map((r) => ({
         peluquero: nombreDe.get(r.peluqueroId) ?? `#${r.peluqueroId}`,
         reservas: r._count,
@@ -546,13 +735,13 @@ negociosRouter.get(
   requireRole("admin_negocio"),
   asyncHandler(async (req, res) => {
     const negocioId = req.params.id;
-    await assertDueno(negocioId, req.user!.sub);
+    await assertDueno(negocioId, req.user!.sub, req.user!.rol);
 
     const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const inicioMes = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1));
     const desde =
       typeof req.query.desde === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.desde)
-        ? new Date(`${req.query.desde}T00:00:00`)
+        ? fechaUTC(req.query.desde)
         : inicioMes;
 
     const equipo = await prisma.peluqueroEquipo.findMany({
@@ -563,15 +752,29 @@ negociosRouter.get(
     const parteNegocioPorFianza = calcularSplitFianza().alNegocioUsd;
 
     if (ids.length === 0) {
-      return res.json({ desde: desde.toISOString().slice(0, 10), parteNegocioPorFianza, empleados: [], totalReservas: 0, totalNegocioUsd: 0 });
+      return res.json({
+        desde: fechaISO(desde),
+        parteNegocioPorFianza,
+        empleados: [],
+        totalReservas: 0,
+        totalNegocioUsd: 0,
+      });
     }
 
-    const grupos = await prisma.reservacion.groupBy({
-      by: ["peluqueroId"],
-      where: { peluqueroId: { in: ids }, pagoReservaStatus: "pagado", createdAt: { gte: desde } },
-      _count: true,
-    });
+    const [grupos, completados] = await Promise.all([
+      prisma.reservacion.groupBy({
+        by: ["peluqueroId"],
+        where: { peluqueroId: { in: ids }, pagoReservaStatus: "pagado", createdAt: { gte: desde } },
+        _count: true,
+      }),
+      prisma.reservacion.groupBy({
+        by: ["peluqueroId"],
+        where: { peluqueroId: { in: ids }, estadoCita: "completada", completadaEn: { gte: desde } },
+        _count: true,
+      }),
+    ]);
     const countDe = new Map(grupos.map((g) => [g.peluqueroId, g._count]));
+    const completadasDe = new Map(completados.map((g) => [g.peluqueroId, g._count]));
 
     const empleados = equipo
       .map((e) => {
@@ -579,13 +782,14 @@ negociosRouter.get(
         return {
           peluquero: e.usuario.nombre,
           reservasPagadas: n,
+          citasCompletadas: completadasDe.get(e.usuarioId) ?? 0,
           fianzaNegocioUsd: Number((n * parteNegocioPorFianza).toFixed(2)),
         };
       })
       .sort((a, b) => b.reservasPagadas - a.reservasPagadas);
 
     res.json({
-      desde: desde.toISOString().slice(0, 10),
+      desde: fechaISO(desde),
       parteNegocioPorFianza,
       comisionPlataformaUsd: env.fianzaComisionUsd,
       empleados,

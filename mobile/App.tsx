@@ -117,11 +117,37 @@ function Reserva() {
   async function reservar(slot: Slot) {
     if (!peluquero || !servicio) return;
     try {
-      const creada = await api.post<{ pago: { transaccionId: string } }>("/reservas", {
+      // 1) Crea la reserva: bloquea el hueco y devuelve los datos de cobro.
+      const creada = await api.post<{
+        reserva: { id: number };
+        pago: { provider: string; clientSecret: string; montoUsd: number };
+      }>("/reservas", {
         peluqueroId: peluquero.id, servicioId: servicio.id, fecha, horaInicio: slot.inicio,
       });
-      await api.post("/reservas/webhook/pago", { transaccionId: creada.pago.transaccionId, pagado: true });
-      // Recupera la reserva confirmada para obtener el link de WhatsApp.
+
+      // 2) Cobro de la fianza según la pasarela configurada.
+      //    Antes se llamaba al webhook público con `pagado: true`, que era
+      //    abusable (cualquiera confirmaba su pago gratis) y hoy el backend lo
+      //    rechaza: el pago solo lo sella la pasarela o el endpoint autenticado.
+      if (creada.pago.provider === "mock") {
+        await api.post(`/reservas/${creada.reserva.id}/pagar`, {});
+      } else if (creada.pago.provider === "paypal" && creada.pago.clientSecret) {
+        // PayPal se aprueba en el navegador y se captura al volver.
+        Linking.openURL(creada.pago.clientSecret).catch(() => {});
+        setMsg("Termina el pago en PayPal para confirmar la cita.");
+        return;
+      } else {
+        // Stripe necesita su SDK nativo (@stripe/stripe-react-native) para
+        // capturar la tarjeta dentro de la app. Mientras no esté integrado, el
+        // hueco queda reservado y el pago se completa desde la web.
+        setMsg(
+          `Reserva creada por ${creada.pago.montoUsd.toFixed(2)} USD. ` +
+            "Termina el pago de la fianza desde la web para confirmarla.",
+        );
+        return;
+      }
+
+      // 3) Recupera la reserva confirmada para obtener el link de WhatsApp.
       const mias = await api.get<{ reservas: { whatsappUrl: string | null }[] }>("/reservas/mias");
       const wa = mias.reservas.find((r) => r.whatsappUrl)?.whatsappUrl;
       setMsg("¡Reserva confirmada!");

@@ -124,6 +124,9 @@ model Negocio {
   resenas      Resena[]
 
   @@index([estadoSuscripcion])
+  @@index([estadoSuscripcion, suscripcionHasta])
+  @@index([lat, lng])
+  @@index([stripeCustomerId])
   @@map("negocios")
 }
 
@@ -222,6 +225,14 @@ model Reservacion {
   expiraPagoEn        DateTime?  @map("expira_pago_en")
   // Marca de recordatorio enviado (evita duplicados del job de recordatorios).
   recordatorioEnviadoEn DateTime? @map("recordatorio_enviado_en")
+  // Recordatorio corto (pocas horas antes). Independiente del de 24h.
+  recordatorioCortoEn   DateTime? @map("recordatorio_corto_en")
+  // Cierre de la cita: se sella al validar el código en el local (o al marcar no-show).
+  completadaEn        DateTime?  @map("completada_en")
+  canceladaEn         DateTime?  @map("cancelada_en")
+  // Quién canceló: cliente | negocio | sistema (expiración de pago).
+  canceladaPor        String?    @map("cancelada_por") @db.VarChar(10)
+  motivoCancelacion   String?    @map("motivo_cancelacion") @db.VarChar(200)
   createdAt           DateTime   @default(now()) @map("created_at")
 
   cliente   Usuario  @relation("ClienteReserva", fields: [clienteId], references: [id])
@@ -231,6 +242,8 @@ model Reservacion {
 
   @@index([peluqueroId, fecha, estadoCita])
   @@index([pagoReservaStatus, expiraPagoEn])
+  @@index([clienteId, fecha])
+  @@index([idTransaccionPasarela])
   @@map("reservaciones")
 }
 
@@ -308,4 +321,18 @@ model AuditLog {
 
   @@index([accion])
   @@map("audit_logs")
+}
+
+// Eventos de webhook ya procesados (idempotencia). Stripe reintenta los eventos:
+// sin esta tabla, un reintento duplicaría emails, WhatsApps y cambios de estado.
+model WebhookEvento {
+  id          Int      @id @default(autoincrement())
+  proveedor   String   @db.VarChar(20) // stripe | paypal | mock
+  eventoId    String   @map("evento_id") @db.VarChar(255)
+  tipo        String   @db.VarChar(80)
+  procesadoEn DateTime @default(now()) @map("procesado_en")
+
+  @@unique([proveedor, eventoId], name: "unique_evento_proveedor")
+  @@index([procesadoEn])
+  @@map("webhook_eventos")
 }

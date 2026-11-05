@@ -84,7 +84,6 @@ export function MapaUbicacion({ lat, lng, onChange }: Props) {
     if (!mapRef.current || lat == null || lng == null) return;
     if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
     else crearMarker(mapRef.current, lat, lng);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng]);
 
   // Geocodifica la dirección escrita y mueve el pin (OpenStreetMap Nominatim, gratis).

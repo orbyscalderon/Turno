@@ -320,6 +320,78 @@ const dict = {
   "own.totalBookings": { es: "Reservas totales", en: "Total bookings" },
   "own.incomeCompleted": { es: "Ingresos (completadas)", en: "Income (completed)" },
   "own.bookingsByPro": { es: "Reservas por profesional", en: "Bookings by professional" },
+  // ---------- Pago de la fianza ----------
+  "pay.title": { es: "Pago de la fianza", en: "Deposit payment" },
+  "pay.depositNote": { es: "Se cobra una fianza de ${monto} para confirmar la cita. Es reembolsable si cancelas con antelación.", en: "A ${monto} deposit confirms your appointment. Refundable if you cancel in time." },
+  "pay.payNow": { es: "Pagar ${monto}", en: "Pay ${monto}" },
+  "pay.processing": { es: "Procesando el pago…", en: "Processing payment…" },
+  "pay.confirming": { es: "Confirmando el pago con la pasarela…", en: "Confirming the payment with the gateway…" },
+  "pay.capturing": { es: "Confirmando tu pago…", en: "Confirming your payment…" },
+  "pay.redirecting": { es: "Te llevamos a PayPal…", en: "Taking you to PayPal…" },
+  "pay.failed": { es: "No se pudo completar el pago", en: "The payment could not be completed" },
+  "pay.holdLeft": { es: "Tu hueco está reservado", en: "Your slot is held" },
+  "pay.expired": { es: "El tiempo de reserva ha caducado. Vuelve a elegir horario.", en: "The hold expired. Please pick a time again." },
+  "pay.secureNote": { es: "Pago seguro procesado por la pasarela. Turno no guarda los datos de tu tarjeta.", en: "Secure payment handled by the gateway. Turno never stores your card details." },
+  "pay.missingKey": { es: "Falta configurar la clave pública de Stripe (VITE_STRIPE_PUBLISHABLE_KEY).", en: "Stripe publishable key is not configured (VITE_STRIPE_PUBLISHABLE_KEY)." },
+  "pay.noSecret": { es: "La pasarela no devolvió datos de pago.", en: "The gateway returned no payment data." },
+  "pay.done": { es: "¡Pago completado!", en: "Payment complete!" },
+  "pay.doneNote": { es: "Tu cita está confirmada. Te hemos enviado el código de validación por email.", en: "Your appointment is confirmed. We emailed you the validation code." },
+  "pay.goHome": { es: "Ir a mis reservas", en: "Go to my bookings" },
+  "pay.step": { es: "Pago", en: "Payment" },
+
+  // ---------- Cierre de citas (negocio) ----------
+  "close.title": { es: "Validar cita en el local", en: "Check in an appointment" },
+  "close.help": { es: "Pide al cliente el código de su reserva y valídalo para cerrar la cita.", en: "Ask the client for their booking code and validate it to close the appointment." },
+  "close.codePlaceholder": { es: "Código (ej. K7M2PQRS)", en: "Code (e.g. K7M2PQRS)" },
+  "close.validate": { es: "Validar", en: "Validate" },
+  "close.validated": { es: "Cita validada y completada ✅", en: "Appointment validated and completed ✅" },
+  "close.already": { es: "Esta cita ya estaba completada", en: "This appointment was already completed" },
+  "close.invalid": { es: "Código no válido", en: "Invalid code" },
+  "close.complete": { es: "Completar", en: "Complete" },
+  "close.noShow": { es: "No asistió", en: "No-show" },
+  "close.cancelBiz": { es: "Cancelar cita", en: "Cancel appointment" },
+  "close.cancelReason": { es: "Motivo (lo verá el cliente)", en: "Reason (the client will see it)" },
+  "close.cancelConfirm": { es: "Se cancelará la cita y se devolverá la fianza al cliente. ¿Continuar?", en: "The appointment will be cancelled and the deposit refunded. Continue?" },
+  "close.noShowConfirm": { es: "Marcar que el cliente no apareció. La fianza NO se devuelve. ¿Continuar?", en: "Mark the client as a no-show. The deposit is NOT refunded. Continue?" },
+  "close.cancelled": { es: "Cita cancelada y fianza devuelta", en: "Appointment cancelled and deposit refunded" },
+  "close.pendingPayment": { es: "Pago pendiente", en: "Payment pending" },
+
+  // ---------- Suscripción / facturación ----------
+  "sub.manage": { es: "Gestionar facturación", en: "Manage billing" },
+  "sub.manageHelp": { es: "Cambia de plan, actualiza la tarjeta, descarga facturas o cancela.", en: "Change plan, update your card, download invoices or cancel." },
+  "sub.cancel": { es: "Cancelar suscripción", en: "Cancel subscription" },
+  "sub.cancelConfirm": { es: "Tu plan no se renovará y mantienes el servicio hasta el final del periodo. ¿Continuar?", en: "Your plan will not renew and you keep the service until the period ends. Continue?" },
+  "sub.daysLeft": { es: "{dias} día(s) restantes", en: "{dias} day(s) left" },
+  "sub.expired": { es: "Suscripción vencida: tu negocio no aparece en las búsquedas ni acepta reservas.", en: "Subscription expired: your business is hidden from search and cannot take bookings." },
+  "sub.expiringSoon": { es: "Tu suscripción vence en {dias} día(s).", en: "Your subscription expires in {dias} day(s)." },
+  "sub.trial": { es: "Prueba gratuita", en: "Free trial" },
+  "sub.renew": { es: "Renovar ahora", en: "Renew now" },
+
+  // ---------- Negocio: ajustes ----------
+  "biz.timezone": { es: "Zona horaria del local", en: "Business time zone" },
+  "biz.timezoneHelp": { es: "De ella dependen los horarios, la agenda y los recordatorios.", en: "Schedules, agenda and reminders all depend on it." },
+  "biz.removeMember": { es: "Dar de baja", en: "Remove" },
+  "biz.removeMemberConfirm": { es: "Se dará de baja al profesional y se cancelarán sus citas futuras (con reembolso). ¿Continuar?", en: "The professional will be removed and their upcoming appointments cancelled (with refund). Continue?" },
+  "biz.memberRemoved": { es: "Profesional dado de baja. Citas canceladas: {n}", en: "Professional removed. Appointments cancelled: {n}" },
+  "biz.myServices": { es: "Mis servicios y agenda", en: "My services and agenda" },
+  "biz.myServicesHelp": { es: "Como dueño también eres reservable: configura aquí tus servicios y tu horario.", en: "As the owner you are bookable too: set your services and schedule here." },
+
+  // ---------- Ficha pública del negocio ----------
+  "pub.bookHere": { es: "Reservar en este negocio", en: "Book at this business" },
+  "pub.professionals": { es: "Profesionales", en: "Professionals" },
+  "pub.noReviews": { es: "Todavía no hay reseñas.", en: "No reviews yet." },
+  "pub.notFound": { es: "Este negocio no está disponible.", en: "This business is not available." },
+  "pub.share": { es: "Copiar enlace", en: "Copy link" },
+  "pub.shared": { es: "¡Enlace copiado!", en: "Link copied!" },
+  "pub.backToSearch": { es: "← Volver al buscador", en: "← Back to search" },
+
+  // ---------- Estados de cita ----------
+  "state.cancelledByBiz": { es: "Cancelada por el negocio", en: "Cancelled by the business" },
+  "state.cancelledBySystem": { es: "Cancelada por falta de pago", en: "Cancelled: payment not completed" },
+  "state.reason": { es: "Motivo", en: "Reason" },
+  "state.completed": { es: "Completada", en: "Completed" },
+  "state.noShow": { es: "No asistió", en: "No-show" },
+  "state.reviewPrompt": { es: "¿Cómo fue tu cita? Déjale una reseña.", en: "How was your appointment? Leave a review." },
 } as const;
 
 export type TKey = keyof typeof dict;
@@ -327,7 +399,7 @@ export type TKey = keyof typeof dict;
 interface I18nState {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (key: TKey) => string;
+  t: (key: TKey, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nState | null>(null);
@@ -346,8 +418,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LANG_KEY, l);
     setLangState(l);
   }
-  function t(key: TKey): string {
-    return dict[key]?.[lang] ?? key;
+  // Interpolación simple: t("pay.payNow", { monto: "2.00" }) -> "Pagar $2.00".
+  function t(key: TKey, params?: Record<string, string | number>): string {
+    const texto = dict[key]?.[lang] ?? key;
+    if (!params) return texto;
+    return texto.replace(/\{(\w+)\}/g, (_m, k) => String(params[k] ?? `{${k}}`));
   }
 
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;

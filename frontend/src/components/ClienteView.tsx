@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, assetUrl, formatPrecio, categoriaLabel, categoriaEmoji, categoriaGrad, mapsUrl, CATEGORIAS, type Negocio, type Peluquero, type Servicio, type Slot, type Reserva } from "../api";
+import { api, ApiError, assetUrl, formatPrecio, categoriaLabel, categoriaEmoji, categoriaGrad, mapsUrl, CATEGORIAS, type Negocio, type Peluquero, type Servicio, type Slot, type Reserva, type DatosPago, type RespuestaReserva } from "../api";
+import { PagoFianza } from "./PagoFianza";
 import { Stars } from "./Stars";
 import { useT } from "../i18n";
+import { navegar } from "../router";
 import { Empty, SkeletonCards } from "./Ui";
 
 type Tab = "reservar" | "historial";
@@ -81,6 +83,13 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ubicando, setUbicando] = useState(false);
   const [montoFianza, setMontoFianza] = useState(2);
+  // Reserva creada y esperando cobro: mientras exista, se muestra el formulario
+  // de pago de la pasarela en lugar del resumen.
+  const [pendientePago, setPendientePago] = useState<{
+    reservaId: number;
+    pago: DatosPago;
+    expiraPagoEn?: string | null;
+  } | null>(null);
 
   // Monto real de la fianza (el cliente puede asumir el fee de Stripe según configuración).
   useEffect(() => { api.get<{ montoCobradoUsd: number }>("/reservas/split").then((s) => setMontoFianza(s.montoCobradoUsd)).catch(() => {}); }, []);
@@ -169,19 +178,20 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
     setError("");
     setProcesando(true);
     try {
-      // 1) Crear la reserva (queda pendiente de pago).
-      const creada = await api.post<{ reserva: { id: number }; pago: { transaccionId: string } }>("/reservas", {
+      // Crear la reserva: bloquea el hueco y devuelve los datos de cobro de la
+      // pasarela. El cobro se completa en <PagoFianza/>, que elige el flujo según
+      // el proveedor (Stripe Elements, redirección de PayPal o mock en desarrollo).
+      const creada = await api.post<RespuestaReserva>("/reservas", {
         peluqueroId: peluquero.id,
         servicioId: servicio.id,
         fecha,
         horaInicio: slot.inicio,
       });
-
-      // 2) Confirmar el pago de la fianza (modo mock/dev): endpoint AUTENTICADO sobre la reserva propia.
-      //    En producción con Stripe, el pago lo confirma el webhook real de la pasarela.
-      await api.post(`/reservas/${creada.reserva.id}/pagar`, {});
-
-      onReservado();
+      setPendientePago({
+        reservaId: creada.reserva.id,
+        pago: creada.pago,
+        expiraPagoEn: creada.reserva.expiraPagoEn,
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo completar la reserva");
       // Recargar slots por si el horario fue tomado.
@@ -189,6 +199,13 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
     } finally {
       setProcesando(false);
     }
+  }
+
+  // El cliente abandona el pago: el hueco se libera solo al caducar el hold.
+  function abandonarPago() {
+    setPendientePago(null);
+    setSlot(null);
+    if (servicio) cargarSlots(servicio, fecha);
   }
 
   const paso = !negocio ? 1 : !peluquero ? 2 : !servicio ? 3 : !slot ? 4 : 5;
@@ -292,6 +309,11 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
                       <div className="biz-meta">
                         {n.direccion} ·{" "}
                         <a href={mapsUrl(n)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{t("mkt.viewMap")}</a>
+                        {" · "}
+                        {/* Enlace a la ficha pública: la URL que el negocio comparte. */}
+                        <a href={`/negocio/${n.slug}`} onClick={(e) => { e.stopPropagation(); e.preventDefault(); navegar(`/negocio/${n.slug}`); }}>
+                          {t("pub.share")}
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -322,7 +344,7 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
             <div className="card"><Empty emoji="🙍">{t("client.noProfessionals")}</Empty></div>
           ) : (
             <div className="mkt-grid">
-              {peluqueros.map((p, i) => (
+              {peluqueros.map((p) => (
                 <div className="biz-card" key={p.id} onClick={() => elegirPeluquero(p)}>
                   <div className="pro-cover" style={{ background: avatarGrad(p.nombre) }}>
                     {p.fotoUrl ? <img src={assetUrl(p.fotoUrl)} alt={p.nombre} /> : <span className="pro-initials">{iniciales(p.nombre)}</span>}
@@ -395,7 +417,21 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
             </div>
           )}
 
-          {slot && (
+          {slot && pendientePago && (
+            <PagoFianza
+              reservaId={pendientePago.reservaId}
+              pago={pendientePago.pago}
+              montoUsd={pendientePago.pago.montoUsd ?? montoFianza}
+              expiraPagoEn={pendientePago.expiraPagoEn}
+              onPagado={() => {
+                setPendientePago(null);
+                onReservado();
+              }}
+              onCancelar={abandonarPago}
+            />
+          )}
+
+          {slot && !pendientePago && (
             <div className="card pop" style={{ background: "linear-gradient(180deg, var(--surface-2), var(--surface-3))", marginTop: 16, borderColor: "var(--brand-600)" }}>
               <h3>{t("client.summary")}</h3>
               <p className="small">
@@ -431,6 +467,12 @@ function Historial() {
   }
   useEffect(cargar, []);
 
+  // Enlace del email "¿Cómo fue tu cita?": ?resena=<id> abre esa cita arriba.
+  const resenaPedida = Number(new URLSearchParams(window.location.search).get("resena")) || null;
+  const ordenadas = resenaPedida
+    ? [...reservas].sort((a, b) => (a.id === resenaPedida ? -1 : b.id === resenaPedida ? 1 : 0))
+    : reservas;
+
   const [aviso, setAviso] = useState("");
   const [reprogramando, setReprogramando] = useState<number | null>(null);
 
@@ -446,8 +488,8 @@ function Historial() {
   return (
     <div>
       {aviso && <p className="success">{aviso}</p>}
-      {reservas.map((r) => (
-        <div className="card" key={r.id}>
+      {ordenadas.map((r) => (
+        <div className={`card ${r.id === resenaPedida ? "pop" : ""}`} key={r.id}>
           <div className="row spread">
             <h3>{r.servicio} {t("client.with")} {r.peluquero}</h3>
             <EstadoBadge estado={r.estadoCita} />
@@ -456,6 +498,18 @@ function Historial() {
           <p className="small">{t("history.validationCode")}: <strong>{r.codigoValidacion}</strong> ·{" "}
             <span className={`badge ${r.pagoReservaStatus === "pagado" ? "ok" : "warn"}`}>{r.pagoReservaStatus}</span>
           </p>
+          {/* Por qué se canceló: antes el cliente veía solo "cancelada" sin explicación. */}
+          {r.estadoCita === "cancelada" && r.canceladaPor && (
+            <p className="small warn">
+              {r.canceladaPor === "negocio"
+                ? t("state.cancelledByBiz")
+                : r.canceladaPor === "sistema"
+                  ? t("state.cancelledBySystem")
+                  : t("common.cancel")}
+              {r.motivoCancelacion ? ` · ${t("state.reason")}: ${r.motivoCancelacion}` : ""}
+            </p>
+          )}
+          {r.estadoCita === "completada" && <p className="small muted">{t("state.reviewPrompt")}</p>}
           <div className="row">
             {r.whatsappUrl && (
               <a href={r.whatsappUrl} target="_blank" rel="noreferrer">
@@ -558,24 +612,3 @@ function EstadoBadge({ estado }: { estado: string }) {
 }
 
 // Colores estables derivados del nombre para el avatar de respaldo.
-const AVATAR_COLORS = ["#4f8cff", "#25d366", "#f5b942", "#ff5c6c", "#a978ff", "#2ec5c5", "#ff8a4c"];
-
-function Avatar({ nombre, fotoUrl }: { nombre: string; fotoUrl?: string | null }) {
-  const iniciales = nombre
-    .split(" ")
-    .map((s) => s[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-  const idx = Math.abs([...nombre].reduce((a, c) => a + c.charCodeAt(0), 0)) % AVATAR_COLORS.length;
-
-  if (fotoUrl) {
-    return <img className="avatar" src={assetUrl(fotoUrl)} alt={nombre} />;
-  }
-  return (
-    <span className="avatar" style={{ background: AVATAR_COLORS[idx] }}>
-      {iniciales}
-    </span>
-  );
-}

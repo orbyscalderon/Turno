@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  api, assetUrl, formatPrecio, categoriaLabel, categoriaEmoji, categoriaGrad, mapsUrl, CATEGORIAS,
-  type Negocio, type Peluquero, type Servicio,
+  api, assetUrl, categoriaLabel, categoriaEmoji, categoriaGrad, CATEGORIAS,
+  type Negocio,
 } from "../api";
 import { useT } from "../i18n";
+import { navegar } from "../router";
 import { Empty, SkeletonCards } from "./Ui";
-import { Stars } from "./Stars";
 
 // Pantalla pública (estilo Fresha): cualquiera navega los negocios sin login.
 // Al querer reservar, se pide iniciar sesión (onReservar).
@@ -18,7 +18,6 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ubicando, setUbicando] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const [sel, setSel] = useState<Negocio | null>(null);
   const [favs, setFavs] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("turno_favs") ?? "[]")));
   const [stats, setStats] = useState<{ negocios: number; profesionales: number; reservas: number } | null>(null);
 
@@ -31,7 +30,8 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
     e.stopPropagation();
     setFavs((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       localStorage.setItem("turno_favs", JSON.stringify([...next]));
       return next;
     });
@@ -67,7 +67,6 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, ubicacion, categoria, coords]);
 
-  if (sel) return <DetalleNegocio negocio={sel} onBack={() => setSel(null)} onReservar={onReservar} />;
 
   return (
     <div className="container">
@@ -138,7 +137,7 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
             const cover = assetUrl(n.coverUrl ?? n.logoUrl);
             const destacado = (n.ratingPromedio ?? 0) >= 4.5;
             return (
-              <div className="biz-card" key={n.id} onClick={() => setSel(n)}>
+              <div className="biz-card" key={n.id} onClick={() => navegar(`/negocio/${n.slug}`)}>
                 <div className="biz-cover" style={{ background: categoriaGrad(n.categoria) }}>
                   {cover ? <img src={cover} alt={n.nombreComercial} loading="lazy" decoding="async" /> : <span>{categoriaEmoji(n.categoria)}</span>}
                   {destacado && <span className="biz-featured">{t("mkt.featured")}</span>}
@@ -170,112 +169,10 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
           <div className="value-card"><span className="v-emoji">🔒</span><h3>{t("mkt.value2t")}</h3><p className="muted small">{t("mkt.value2d")}</p></div>
           <div className="value-card"><span className="v-emoji">📲</span><h3>{t("mkt.value3t")}</h3><p className="muted small">{t("mkt.value3d")}</p></div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Ficha pública del negocio: portada, info, profesionales y sus servicios. Reservar => login.
-function DetalleNegocio({ negocio, onBack, onReservar }: { negocio: Negocio; onBack: () => void; onReservar: () => void }) {
-  const { t } = useT();
-  const [profesionales, setProfesionales] = useState<Peluquero[]>([]);
-  const [sel, setSel] = useState<Peluquero | null>(null);
-  const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [resenas, setResenas] = useState<{ id: number; puntuacion: number; comentario: string | null; createdAt: string; cliente: { nombre: string } }[]>([]);
-
-  useEffect(() => {
-    api.get<{ profesionales: Peluquero[] }>(`/negocios/${negocio.slug}`).then((r) => setProfesionales(r.profesionales));
-    api.get<{ resenas: typeof resenas }>(`/resenas/negocio/${negocio.id}`).then((r) => setResenas(r.resenas)).catch(() => {});
-  }, [negocio.slug]);
-
-  async function verPro(p: Peluquero) {
-    setSel(p);
-    const r = await api.get<{ servicios: Servicio[] }>(`/servicios/peluquero/${p.id}`);
-    setServicios(r.servicios);
-  }
-
-  const cover = assetUrl(negocio.coverUrl ?? negocio.logoUrl);
-
-  return (
-    <div className="container">
-      <p><button className="ghost small" onClick={onBack}>{t("common.back")}</button></p>
-
-      {/* Portada + info */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="biz-cover" style={{ height: 200, background: categoriaGrad(negocio.categoria) }}>
-          {cover ? <img src={cover} alt={negocio.nombreComercial} /> : <span style={{ fontSize: 64 }}>{categoriaEmoji(negocio.categoria)}</span>}
-          {(negocio.ratingConteo ?? 0) > 0 && <span className="rating-pill">★ {negocio.ratingPromedio} ({negocio.ratingConteo})</span>}
-        </div>
-        <div style={{ padding: 20 }}>
-          <div className="row spread">
-            <h1 style={{ margin: 0 }}>{negocio.nombreComercial}</h1>
-            <span className="badge">{categoriaLabel(negocio.categoria)}</span>
-          </div>
-          {(negocio.ratingConteo ?? 0) > 0 && (
-            <div style={{ marginTop: 6 }}><Stars valor={negocio.ratingPromedio ?? 0} size={16} /> <span className="muted small">{negocio.ratingPromedio}</span></div>
-          )}
-          <p className="muted small" style={{ marginTop: 8 }}>
-            📍 {negocio.direccion} · <a href={mapsUrl(negocio)} target="_blank" rel="noreferrer">{t("mkt.viewMap")}</a>
-          </p>
-          <button className="primary" style={{ marginTop: 6 }} onClick={onReservar}>{t("pub.bookCta")}</button>
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button className="primary" onClick={onReservar}>{t("pub.bookCta")}</button>
         </div>
       </div>
-
-      {/* Profesionales */}
-      <div className="card">
-        <h2>{t("pub.team")}</h2>
-        {profesionales.length === 0 && <Empty emoji="🙍">{t("client.noProfessionals")}</Empty>}
-        <div className="mkt-grid">
-          {profesionales.map((p) => (
-            <div className={`biz-card ${sel?.id === p.id ? "" : ""}`} key={p.id} onClick={() => verPro(p)}>
-              <div className="pro-cover" style={{ background: categoriaGrad(negocio.categoria) }}>
-                {p.fotoUrl ? <img src={assetUrl(p.fotoUrl)} alt={p.nombre} /> : <span className="pro-initials">{p.nombre.split(" ").map((s) => s[0]).slice(0, 2).join("")}</span>}
-              </div>
-              <div className="biz-body"><h3>{p.nombre}</h3><div className="biz-meta">{t("role.peluquero")}</div></div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Servicios del profesional elegido */}
-      {sel && (
-        <div className="card">
-          <h2>{sel.nombre} — {t("pub.services")}</h2>
-          {servicios.map((s) => (
-            <div className="list-item" key={s.id}>
-              <div className="row" style={{ gap: 12 }}>
-                {s.imagenUrl
-                  ? <img src={assetUrl(s.imagenUrl)} alt={s.nombreServicio} style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10 }} />
-                  : <span style={{ width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10, background: "var(--surface-2)" }}>✂️</span>}
-                <div><h3>{s.nombreServicio}</h3><span className="muted small">⏱️ {s.duracionMinutos} min</span></div>
-              </div>
-              <div className="row">
-                <strong>{formatPrecio(s.precio, s.moneda)}</strong>
-                <button className="primary" onClick={onReservar}>{t("client.tabBook")}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Reseñas del negocio */}
-      {resenas.length > 0 && (
-        <div className="card">
-          <h2>{t("pub.reviews")} ({resenas.length})</h2>
-          {resenas.map((r) => (
-            <div className="list-item" key={r.id} style={{ alignItems: "flex-start" }}>
-              <div>
-                <div className="row" style={{ gap: 8 }}>
-                  <Stars valor={r.puntuacion} size={14} />
-                  <strong className="small">{r.cliente.nombre}</strong>
-                </div>
-                {r.comentario && <p className="muted small" style={{ margin: "4px 0 0" }}>{r.comentario}</p>}
-              </div>
-              <span className="faint small">{new Date(r.createdAt).toLocaleDateString()}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

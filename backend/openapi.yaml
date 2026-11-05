@@ -1,0 +1,1154 @@
+openapi: 3.0.3
+info:
+  title: API de Turno
+  version: "1.0.0"
+  description: |
+    API REST de Turno — plataforma SaaS de reservas para negocios de servicios
+    (barberías, peluquerías, estética, spa, uñas...).
+
+    ## Autenticación
+    Casi todo va con `Authorization: Bearer <token>`. El token de acceso es corto;
+    cuando caduca se renueva con `POST /api/auth/refresh` usando el refresh token
+    (opaco, revocable y con rotación en cada uso).
+
+    ## Fechas y horas
+    - `fecha`: fecha de calendario `YYYY-MM-DD`, SIN zona horaria.
+    - `horaInicio` / `horaFin`: `HH:MM` en la **zona horaria del negocio**
+      (`Negocio.timezone`), no en la del cliente ni la del servidor.
+
+    ## Flujo de reserva
+    1. `GET /api/reservas/slots` — huecos libres.
+    2. `POST /api/reservas` — bloquea el hueco (estado `confirmada`, pago `pendiente`)
+       y devuelve el `clientSecret` de la pasarela. El hueco caduca en
+       `expiraPagoEn` si no se paga.
+    3. Pago: Stripe Elements con el `clientSecret` (o `POST /api/reservas/{id}/pagar`
+       en modo `mock`, o `POST /api/reservas/{id}/capturar` con PayPal).
+    4. El webhook de la pasarela confirma el pago (fuente de verdad).
+    5. En el local, el negocio valida el código: `POST /api/reservas/validar`
+       → la cita pasa a `completada` y habilita la reseña.
+servers:
+  - url: http://localhost:4000
+    description: Desarrollo
+  - url: https://api.tudominio.com
+    description: Producción
+
+tags:
+  - name: Salud
+  - name: Autenticación
+  - name: Negocios
+  - name: Servicios
+  - name: Disponibilidad
+  - name: Reservas
+  - name: Reseñas
+  - name: Suscripción
+  - name: Cobros (Connect)
+  - name: Subidas
+  - name: Superadmin
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: "No autorizado" }
+        code: { type: string, example: "FORBIDDEN" }
+        detalles:
+          type: array
+          items:
+            type: object
+            properties:
+              campo: { type: string }
+              mensaje: { type: string }
+    Meta:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        totalPaginas: { type: integer }
+    Usuario:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        email: { type: string, format: email }
+        telefono: { type: string }
+        rol: { type: string, enum: [superadmin, admin_negocio, peluquero, cliente] }
+        fotoUrl: { type: string, nullable: true }
+        emailVerificadoEn: { type: string, format: date-time, nullable: true }
+    Sesion:
+      type: object
+      properties:
+        usuario: { $ref: "#/components/schemas/Usuario" }
+        token: { type: string, description: "JWT de acceso" }
+        refreshToken: { type: string, description: "Token opaco revocable" }
+    Negocio:
+      type: object
+      properties:
+        id: { type: string }
+        nombreComercial: { type: string }
+        slug: { type: string }
+        categoria: { type: string }
+        direccion: { type: string }
+        telefonoContacto: { type: string }
+        timezone: { type: string, example: "Europe/Madrid" }
+        logoUrl: { type: string, nullable: true }
+        coverUrl: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        ratingPromedio: { type: number }
+        ratingConteo: { type: integer }
+        distanciaKm:
+          type: number
+          nullable: true
+          description: Solo en búsquedas con lat/lng
+    Servicio:
+      type: object
+      properties:
+        id: { type: integer }
+        nombreServicio: { type: string }
+        precio: { type: string, description: "Decimal(10,2) serializado" }
+        moneda: { type: string, example: "EUR" }
+        duracionMinutos: { type: integer }
+        imagenUrl: { type: string, nullable: true }
+        activo: { type: boolean }
+    Slot:
+      type: object
+      properties:
+        inicio: { type: string, example: "10:30" }
+        fin: { type: string, example: "11:00" }
+    Reserva:
+      type: object
+      properties:
+        id: { type: integer }
+        fecha: { type: string, format: date }
+        horaInicio: { type: string, example: "10:30" }
+        horaFin: { type: string, example: "11:00" }
+        estadoCita: { type: string, enum: [confirmada, cancelada, no_asistio, completada] }
+        pagoReservaStatus: { type: string, enum: [pendiente, pagado, reembolsado] }
+        codigoValidacion: { type: string, description: "Código corto que el cliente enseña en el local" }
+        expiraPagoEn: { type: string, format: date-time, nullable: true }
+        canceladaPor: { type: string, nullable: true, enum: [cliente, negocio, sistema] }
+        motivoCancelacion: { type: string, nullable: true }
+        timezone: { type: string }
+  responses:
+    NoAutenticado:
+      description: Falta el token o no es válido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Prohibido:
+      description: El rol no tiene permiso para esta operación
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NoEncontrado:
+      description: Recurso inexistente
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflicto:
+      description: Conflicto de estado (hueco ocupado, límite de plan, duplicado...)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+paths:
+  /api/health:
+    get:
+      tags: [Salud]
+      summary: Salud del servicio (comprueba la base de datos)
+      responses:
+        "200": { description: Todo correcto }
+        "503": { description: La base de datos no responde }
+  /api/health/live:
+    get:
+      tags: [Salud]
+      summary: Sonda de vida (no toca la base de datos)
+      responses:
+        "200": { description: El proceso responde }
+
+  /api/auth/registro:
+    post:
+      tags: [Autenticación]
+      summary: Crear cuenta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, telefono, email, password, rol]
+              properties:
+                nombre: { type: string, minLength: 2 }
+                telefono: { type: string }
+                email: { type: string, format: email, description: "Se normaliza a minúsculas" }
+                password: { type: string, minLength: 8 }
+                rol: { type: string, enum: [admin_negocio, peluquero, cliente] }
+      responses:
+        "201":
+          description: Cuenta creada (envía email de verificación)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Sesion" }
+        "400": { description: Email en uso o datos inválidos }
+  /api/auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Sesion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { description: Cuenta suspendida }
+  /api/auth/google:
+    post:
+      tags: [Autenticación]
+      summary: Entrar/registrarse con Google (Google Identity Services)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential: { type: string, description: "ID token de Google" }
+      responses:
+        "200":
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Sesion" }
+  /api/auth/refresh:
+    post:
+      tags: [Autenticación]
+      summary: Renovar el token de acceso (con rotación del refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { description: Nuevo par de tokens }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+  /api/auth/logout:
+    post:
+      tags: [Autenticación]
+      summary: Cerrar sesión (revoca el refresh token)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { description: Sesión cerrada }
+  /api/auth/me:
+    get:
+      tags: [Autenticación]
+      summary: Perfil del usuario autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { $ref: "#/components/schemas/Usuario" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+    delete:
+      tags: [Autenticación]
+      summary: Eliminar mi cuenta (RGPD)
+      description: |
+        Anonimiza los datos personales, cancela las citas futuras y desactiva los
+        negocios y servicios del usuario. El histórico contable se conserva ya
+        anonimizado.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Cuenta eliminada }
+  /api/auth/me/export:
+    get:
+      tags: [Autenticación]
+      summary: Exportar todos mis datos (RGPD)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Fichero JSON con los datos del usuario }
+  /api/auth/email/verificar:
+    post:
+      tags: [Autenticación]
+      summary: Verificar el email con el token recibido
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties: { token: { type: string } }
+      responses:
+        "200": { description: Email verificado }
+        "400": { description: Token inválido o caducado }
+  /api/auth/email/reenviar:
+    post:
+      tags: [Autenticación]
+      summary: Reenviar el email de verificación
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Email reenviado }
+  /api/auth/password/olvide:
+    post:
+      tags: [Autenticación]
+      summary: Solicitar restablecimiento de contraseña
+      description: Responde igual exista o no la cuenta (evita enumerar usuarios).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties: { email: { type: string, format: email } }
+      responses:
+        "200": { description: Si el email existe, se envía el enlace }
+  /api/auth/password/reset:
+    post:
+      tags: [Autenticación]
+      summary: Fijar nueva contraseña con el token
+      description: Al cambiarla se revocan TODAS las sesiones abiertas del usuario.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: Contraseña actualizada }
+        "400": { description: Token inválido o caducado }
+
+  /api/stats:
+    get:
+      tags: [Salud]
+      summary: Métricas públicas agregadas de la portada
+      responses:
+        "200":
+          description: Contadores (en caché 60 s)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  negocios: { type: integer }
+                  profesionales: { type: integer }
+                  reservas: { type: integer }
+                  reservasHoy: { type: integer }
+
+  /api/negocios:
+    get:
+      tags: [Negocios]
+      summary: Buscar negocios (público; solo con suscripción vigente)
+      parameters:
+        - { in: query, name: q, schema: { type: string }, description: Texto del nombre }
+        - { in: query, name: ubicacion, schema: { type: string }, description: Texto de la dirección }
+        - { in: query, name: categoria, schema: { type: string } }
+        - { in: query, name: lat, schema: { type: number } }
+        - { in: query, name: lng, schema: { type: number } }
+        - in: query
+          name: radioKm
+          schema: { type: number, default: 50, minimum: 1, maximum: 500 }
+          description: Solo con lat/lng. Ordena por cercanía.
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  negocios:
+                    type: array
+                    items: { $ref: "#/components/schemas/Negocio" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+    post:
+      tags: [Negocios]
+      summary: Crear negocio (14 días de prueba)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombreComercial, direccion, telefonoContacto]
+              properties:
+                nombreComercial: { type: string }
+                categoria: { type: string }
+                perfil: { type: string }
+                direccion: { type: string }
+                telefonoContacto: { type: string }
+                timezone: { type: string, example: "Europe/Madrid" }
+                lat: { type: number }
+                lng: { type: number }
+      responses:
+        "201": { description: Negocio creado }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+  /api/negocios/mios:
+    get:
+      tags: [Negocios]
+      summary: Mis negocios (incluye vigencia y días restantes)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado }
+  /api/negocios/{slug}:
+    get:
+      tags: [Negocios]
+      summary: Ficha pública del negocio con sus profesionales
+      parameters: [{ in: path, name: slug, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Ficha del negocio }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+  /api/negocios/{id}:
+    patch:
+      tags: [Negocios]
+      summary: Actualizar datos del negocio (dueño)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombreComercial: { type: string }
+                direccion: { type: string }
+                categoria: { type: string }
+                telefonoContacto: { type: string }
+                timezone: { type: string }
+                lat: { type: number, nullable: true }
+                lng: { type: number, nullable: true }
+      responses:
+        "200": { description: Negocio actualizado }
+  /api/negocios/{id}/equipo:
+    get:
+      tags: [Negocios]
+      summary: Equipo y solicitudes del negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Miembros, activos y límite del plan }
+  /api/negocios/{id}/equipo/{solicitudId}:
+    patch:
+      tags: [Negocios]
+      summary: Aceptar o rechazar a un profesional
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: solicitudId, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [aceptado, rechazado] }
+      responses:
+        "200": { description: Solicitud resuelta }
+        "409": { description: Límite de profesionales del plan alcanzado }
+  /api/negocios/{id}/equipo/{miembroId}:
+    delete:
+      tags: [Negocios]
+      summary: Dar de baja a un profesional
+      description: Cancela sus citas futuras y avisa a los clientes afectados.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: miembroId, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Profesional dado de baja }
+  /api/negocios/{id}/solicitudes:
+    post:
+      tags: [Negocios]
+      summary: Un profesional solicita unirse al negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "201": { description: Solicitud creada }
+  /api/negocios/{id}/invitaciones:
+    post:
+      tags: [Negocios]
+      summary: Generar enlace de invitación (7 días)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "201": { description: Token y URL de invitación }
+  /api/negocios/invitaciones/{token}:
+    get:
+      tags: [Negocios]
+      summary: Consultar una invitación
+      parameters: [{ in: path, name: token, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Negocio al que invita }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+  /api/negocios/invitaciones/{token}/aceptar:
+    post:
+      tags: [Negocios]
+      summary: Aceptar la invitación (queda aprobado)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: token, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Membresía creada }
+        "409": { description: Ya es miembro o límite del plan alcanzado }
+  /api/negocios/{id}/analitica:
+    get:
+      tags: [Negocios]
+      summary: Analítica del negocio (dueño)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Totales por estado, ingresos por moneda y por profesional }
+  /api/negocios/{id}/liquidacion:
+    get:
+      tags: [Negocios]
+      summary: Liquidación por empleado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: query, name: desde, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Reparto de fianzas por profesional }
+
+  /api/servicios/peluquero/{peluqueroId}:
+    get:
+      tags: [Servicios]
+      summary: Catálogo público de un profesional
+      parameters: [{ in: path, name: peluqueroId, required: true, schema: { type: integer } }]
+      responses:
+        "200":
+          description: Servicios activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  servicios:
+                    type: array
+                    items: { $ref: "#/components/schemas/Servicio" }
+  /api/servicios:
+    post:
+      tags: [Servicios]
+      summary: Crear servicio propio
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombreServicio, precio, duracionMinutos]
+              properties:
+                nombreServicio: { type: string }
+                precio: { type: number }
+                moneda: { type: string, enum: [USD, EUR, MXN, COP, ARS, CLP, PEN, GBP, BRL, DOP] }
+                duracionMinutos: { type: integer, maximum: 600 }
+      responses:
+        "201": { description: Servicio creado }
+  /api/servicios/mios:
+    get:
+      tags: [Servicios]
+      summary: Mis servicios
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado }
+  /api/servicios/{id}:
+    put:
+      tags: [Servicios]
+      summary: Actualizar servicio propio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Servicio actualizado }
+    delete:
+      tags: [Servicios]
+      summary: Desactivar servicio (baja lógica)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "204": { description: Desactivado }
+
+  /api/disponibilidad/mia:
+    get:
+      tags: [Disponibilidad]
+      summary: Mi disponibilidad semanal
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Rangos por día }
+    put:
+      tags: [Disponibilidad]
+      summary: Reemplazar mi disponibilidad semanal
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rangos]
+              properties:
+                rangos:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [dia, horaInicio, horaFin]
+                    properties:
+                      dia:
+                        type: string
+                        enum: [lunes, martes, miercoles, jueves, viernes, sabado, domingo]
+                      horaInicio: { type: string, example: "09:00" }
+                      horaFin: { type: string, example: "18:00" }
+      responses:
+        "200": { description: Disponibilidad guardada }
+  /api/disponibilidad/bloqueos:
+    get:
+      tags: [Disponibilidad]
+      summary: Mis bloqueos de agenda futuros
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado }
+    post:
+      tags: [Disponibilidad]
+      summary: Bloquear agenda (descanso, vacaciones)
+      description: Sin horas, bloquea el día completo.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fecha]
+              properties:
+                fecha: { type: string, format: date }
+                horaInicio: { type: string }
+                horaFin: { type: string }
+                motivo: { type: string }
+      responses:
+        "201": { description: Bloqueo creado }
+  /api/disponibilidad/bloqueos/{id}:
+    delete:
+      tags: [Disponibilidad]
+      summary: Eliminar un bloqueo
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "204": { description: Eliminado }
+
+  /api/reservas/slots:
+    get:
+      tags: [Reservas]
+      summary: Huecos libres de un profesional en una fecha
+      description: No devuelve horas pasadas del día en curso (según la zona del negocio).
+      parameters:
+        - { in: query, name: peluqueroId, required: true, schema: { type: integer } }
+        - { in: query, name: servicioId, required: true, schema: { type: integer } }
+        - { in: query, name: fecha, required: true, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Huecos disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  duracionMinutos: { type: integer }
+                  timezone: { type: string }
+                  slots:
+                    type: array
+                    items: { $ref: "#/components/schemas/Slot" }
+  /api/reservas:
+    post:
+      tags: [Reservas]
+      summary: Crear reserva y arrancar el cobro de la fianza
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [peluqueroId, servicioId, fecha, horaInicio]
+              properties:
+                peluqueroId: { type: integer }
+                servicioId: { type: integer }
+                fecha: { type: string, format: date }
+                horaInicio: { type: string, example: "10:30" }
+      responses:
+        "201":
+          description: Reserva creada (pago pendiente)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reserva: { $ref: "#/components/schemas/Reserva" }
+                  pago:
+                    type: object
+                    properties:
+                      provider: { type: string, enum: [mock, stripe, paypal] }
+                      transaccionId: { type: string }
+                      clientSecret: { type: string }
+                      montoUsd: { type: number }
+        "403": { description: Email sin verificar o profesional no disponible }
+        "409":
+          description: |
+            Hueco ocupado (`SLOT_OCUPADO`), fuera de disponibilidad (`FUERA_DE_RANGO`)
+            o demasiadas reservas pendientes de pago (`DEMASIADAS_PENDIENTES`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/reservas/mias:
+    get:
+      tags: [Reservas]
+      summary: Mi historial de reservas (paginado)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20 } }
+      responses:
+        "200": { description: Reservas del cliente }
+  /api/reservas/agenda:
+    get:
+      tags: [Reservas]
+      summary: Agenda del profesional
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: desde, schema: { type: string, format: date } }
+        - { in: query, name: hasta, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Citas del profesional con la zona horaria del negocio }
+  /api/reservas/mis-ingresos:
+    get:
+      tags: [Reservas]
+      summary: Ingresos y citas completadas del profesional
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: query, name: desde, schema: { type: string, format: date } }]
+      responses:
+        "200": { description: Desglose por moneda }
+  /api/reservas/split:
+    get:
+      tags: [Reservas]
+      summary: Desglose del reparto de la fianza
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Fianza, comisión de la pasarela, parte del negocio y de la plataforma }
+  /api/reservas/{id}/pagar:
+    post:
+      tags: [Reservas]
+      summary: Confirmar el pago (SOLO en modo mock)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Reserva confirmada }
+        "400": { description: Con pasarela real el pago se confirma en la pasarela }
+  /api/reservas/{id}/capturar:
+    post:
+      tags: [Reservas]
+      summary: Capturar el pago aprobado (PayPal)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Pago capturado y reserva confirmada }
+  /api/reservas/{id}/cancelar:
+    patch:
+      tags: [Reservas]
+      summary: El cliente cancela su cita
+      description: Reembolso solo si se cancela con la antelación mínima configurada.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Cita cancelada }
+  /api/reservas/{id}/reprogramar:
+    patch:
+      tags: [Reservas]
+      summary: El cliente cambia fecha/hora de su cita
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fecha, horaInicio]
+              properties:
+                fecha: { type: string, format: date }
+                horaInicio: { type: string }
+      responses:
+        "200": { description: Cita reprogramada }
+        "409": { $ref: "#/components/responses/Conflicto" }
+  /api/reservas/validar:
+    post:
+      tags: [Reservas]
+      summary: Validar el código del cliente en el local → cita completada
+      description: |
+        Es la operación que cierra el ciclo: marca la cita como `completada`,
+        habilita la reseña del cliente y alimenta la analítica del negocio.
+        Idempotente: validar dos veces devuelve `yaCompletada: true`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo]
+              properties:
+                codigo: { type: string, description: "Insensible a mayúsculas" }
+      responses:
+        "200": { description: Cita completada }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "404": { description: Código no válido }
+  /api/reservas/{id}/completar:
+    patch:
+      tags: [Reservas]
+      summary: Cerrar la cita sin código (el profesional la da por atendida)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Cita completada }
+  /api/reservas/{id}/no-asistio:
+    patch:
+      tags: [Reservas]
+      summary: Marcar que el cliente no apareció (la fianza NO se devuelve)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Cita marcada como no_asistio }
+  /api/reservas/{id}/cancelar-negocio:
+    patch:
+      tags: [Reservas]
+      summary: El negocio cancela la cita (siempre con reembolso)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: { type: string, maxLength: 200 }
+      responses:
+        "200": { description: Cita cancelada, fianza reembolsada y cliente avisado }
+  /api/reservas/webhook/pago:
+    post:
+      tags: [Reservas]
+      summary: Webhook de la pasarela (fuente de verdad del pago)
+      description: |
+        Verifica la firma y procesa cada evento UNA sola vez (idempotencia en base
+        de datos). Si el pago llega después de caducar el hueco, se reembolsa
+        automáticamente en lugar de confirmar una cita que pudo revenderse.
+        No requiere autenticación: la firma es la credencial.
+      responses:
+        "200": { description: Evento procesado (o descartado por duplicado) }
+        "400": { description: Firma inválida }
+
+  /api/resenas:
+    post:
+      tags: [Reseñas]
+      summary: Reseñar una cita completada
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservacionId, puntuacion]
+              properties:
+                reservacionId: { type: integer }
+                puntuacion: { type: integer, minimum: 1, maximum: 5 }
+                comentario: { type: string, maxLength: 500 }
+      responses:
+        "201": { description: Reseña creada (recalcula el rating del negocio) }
+        "400": { description: La cita no está completada }
+        "409": { description: Ya reseñada }
+  /api/resenas/negocio/{negocioId}:
+    get:
+      tags: [Reseñas]
+      summary: Reseñas de un negocio (público, paginado)
+      parameters:
+        - { in: path, name: negocioId, required: true, schema: { type: string } }
+        - { in: query, name: page, schema: { type: integer } }
+        - { in: query, name: limit, schema: { type: integer } }
+      responses:
+        "200": { description: Listado de reseñas }
+
+  /api/suscripcion/planes:
+    get:
+      tags: [Suscripción]
+      summary: Catálogo de planes y límites
+      responses:
+        "200": { description: Planes disponibles }
+  /api/suscripcion/checkout:
+    post:
+      tags: [Suscripción]
+      summary: Contratar o renovar plan
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId]
+              properties:
+                negocioId: { type: string }
+                plan: { type: string, enum: [basico, pro] }
+                intervalo: { type: string, enum: [mensual, anual] }
+      responses:
+        "200": { description: URL de Stripe Checkout (o activación simulada en modo mock) }
+  /api/suscripcion/portal:
+    post:
+      tags: [Suscripción]
+      summary: Portal de facturación de Stripe
+      description: Cambiar de plan, actualizar la tarjeta, ver facturas y cancelar.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId]
+              properties: { negocioId: { type: string } }
+      responses:
+        "200": { description: URL del portal }
+  /api/suscripcion/cancelar:
+    post:
+      tags: [Suscripción]
+      summary: Cancelar la renovación (se mantiene hasta fin de periodo)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId]
+              properties: { negocioId: { type: string } }
+      responses:
+        "200": { description: Marcada para no renovarse }
+  /api/suscripcion/estado/{negocioId}:
+    get:
+      tags: [Suscripción]
+      summary: Estado de la suscripción del negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: negocioId, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Plan, vigencia y días restantes }
+  /api/suscripcion/webhook:
+    post:
+      tags: [Suscripción]
+      summary: Webhook de suscripciones de Stripe
+      description: Usa su propio secreto de firma, distinto del webhook de pagos.
+      responses:
+        "200": { description: Evento procesado }
+        "400": { description: Firma inválida }
+
+  /api/connect/onboard:
+    post:
+      tags: [Cobros (Connect)]
+      summary: Iniciar o continuar el alta de cobros del negocio
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId]
+              properties: { negocioId: { type: string } }
+      responses:
+        "200": { description: URL de onboarding de Stripe Express }
+  /api/connect/payout-schedule:
+    post:
+      tags: [Cobros (Connect)]
+      summary: Calendario de depósitos del negocio
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId, intervalo]
+              properties:
+                negocioId: { type: string }
+                intervalo: { type: string, enum: [daily, weekly, monthly] }
+                anchor: { type: integer, minimum: 1, maximum: 31 }
+      responses:
+        "200": { description: Calendario guardado }
+  /api/connect/estado/{negocioId}:
+    get:
+      tags: [Cobros (Connect)]
+      summary: Estado de cobros del negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: negocioId, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Conectado, cobros activos y calendario de depósitos }
+
+  /api/uploads/foto:
+    post:
+      tags: [Subidas]
+      summary: Mi foto de perfil
+      description: JPG/PNG/WEBP, máx. 3 MB. Se valida el contenido real del archivo.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                imagen: { type: string, format: binary }
+      responses:
+        "201": { description: URL de la imagen }
+        "413": { description: Archivo demasiado grande }
+  /api/uploads/servicio/{servicioId}:
+    post:
+      tags: [Subidas]
+      summary: Imagen de un servicio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: servicioId, required: true, schema: { type: integer } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                imagen: { type: string, format: binary }
+      responses:
+        "201": { description: URL de la imagen }
+  /api/uploads/logo/{negocioId}:
+    post:
+      tags: [Subidas]
+      summary: Logo del negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: negocioId, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                imagen: { type: string, format: binary }
+      responses:
+        "201": { description: URL del logo }
+  /api/uploads/cover/{negocioId}:
+    post:
+      tags: [Subidas]
+      summary: Portada del negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: negocioId, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                imagen: { type: string, format: binary }
+      responses:
+        "201": { description: URL de la portada }
+
+  /api/superadmin/metricas:
+    get:
+      tags: [Superadmin]
+      summary: Métricas globales de la plataforma
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Negocios, reservas pagadas y usuarios por rol }
+  /api/superadmin/negocios:
+    get:
+      tags: [Superadmin]
+      summary: Todos los negocios (paginado)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado }
+  /api/superadmin/negocios/{id}/suscripcion:
+    patch:
+      tags: [Superadmin]
+      summary: Forzar el estado de suscripción de un negocio
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Estado actualizado }
+  /api/superadmin/usuarios:
+    get:
+      tags: [Superadmin]
+      summary: Usuarios (paginado, con búsqueda)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado }
+  /api/superadmin/usuarios/{id}/estado:
+    patch:
+      tags: [Superadmin]
+      summary: Banear o reactivar un usuario (revoca sus sesiones)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Estado actualizado }
+  /api/superadmin/ingresos:
+    get:
+      tags: [Superadmin]
+      summary: Serie diaria de ingresos por fianzas
+      security: [{ bearerAuth: [] }]
+      parameters: [{ in: query, name: dias, schema: { type: integer, default: 30, maximum: 365 } }]
+      responses:
+        "200": { description: Serie temporal }
+  /api/superadmin/auditoria:
+    get:
+      tags: [Superadmin]
+      summary: Registro de auditoría (paginado)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Acciones sensibles registradas }
+  /api/superadmin/vencer-suscripciones:
+    post:
+      tags: [Superadmin]
+      summary: Forzar el barrido de suscripciones caducadas
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Número de suscripciones vencidas }

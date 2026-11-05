@@ -3,12 +3,14 @@ import type { Rol } from "@prisma/client";
 import { verifyToken, type TokenPayload } from "../lib/auth.js";
 import { Unauthorized, Forbidden } from "../lib/errors.js";
 
-// Extiende el tipo Request para adjuntar el usuario autenticado.
+// Extiende el tipo Request para adjuntar el usuario autenticado y el cuerpo crudo
+// (necesario para verificar la firma de los webhooks de la pasarela de pagos).
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: TokenPayload;
+      rawBody?: string;
     }
   }
 }

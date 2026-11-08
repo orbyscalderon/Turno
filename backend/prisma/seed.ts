@@ -49,6 +49,8 @@ async function main() {
       slug: "barberia-el-corte-fino",
       direccion: "Calle Mayor 123, Madrid",
       telefonoContacto: "+34600111222",
+      // La zona horaria del local rige huecos, agenda y recordatorios.
+      timezone: "Europe/Madrid",
       lat: 40.4168,
       lng: -3.7038,
       estadoSuscripcion: "activo",
@@ -74,6 +76,7 @@ async function main() {
       slug: "estetica-bella-piel",
       direccion: "Av. de la Luz 45, Valencia",
       telefonoContacto: "+34600777888",
+      timezone: "Europe/Madrid",
       lat: 39.4699,
       lng: -0.3763,
       estadoSuscripcion: "activo",

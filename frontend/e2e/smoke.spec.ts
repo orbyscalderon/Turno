@@ -20,7 +20,10 @@ test("la página de precios muestra los planes", async ({ page }) => {
 
 test("el cliente puede iniciar sesión y ver sus reservas", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /Iniciar sesión|Sign in/i }).first().click();
+  await page
+    .getByRole("button", { name: /Iniciar sesión|Sign in/i })
+    .first()
+    .click();
   await page.locator('input[type="email"]').fill("cliente@turno.app");
   await page.locator('input[type="password"]').fill("password123");
   await page.getByRole("button", { name: /^(Entrar|Sign in)$/i }).click();

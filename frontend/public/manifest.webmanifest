@@ -1,0 +1,16 @@
+{
+  "name": "Turno — Reservas de belleza y bienestar",
+  "short_name": "Turno",
+  "description": "Reserva citas en barberías, peluquerías, estética, spa y uñas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "lang": "es",
+  "categories": ["lifestyle", "business"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

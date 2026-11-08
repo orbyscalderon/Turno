@@ -14,7 +14,14 @@ serviciosRouter.get(
     const peluqueroId = Number(req.params.peluqueroId);
     const servicios = await prisma.servicio.findMany({
       where: { peluqueroId, activo: true },
-      select: { id: true, nombreServicio: true, precio: true, moneda: true, duracionMinutos: true, imagenUrl: true },
+      select: {
+        id: true,
+        nombreServicio: true,
+        precio: true,
+        moneda: true,
+        duracionMinutos: true,
+        imagenUrl: true,
+      },
       orderBy: { nombreServicio: "asc" },
     });
     res.json({ servicios });
@@ -23,7 +30,18 @@ serviciosRouter.get(
 
 // ---------- CRUD del peluquero sobre su propio catálogo ----------
 // Monedas soportadas (código ISO 4217).
-export const MONEDAS = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "GBP", "BRL", "DOP"] as const;
+export const MONEDAS = [
+  "USD",
+  "EUR",
+  "MXN",
+  "COP",
+  "ARS",
+  "CLP",
+  "PEN",
+  "GBP",
+  "BRL",
+  "DOP",
+] as const;
 
 const servicioSchema = z.object({
   nombreServicio: z.string().min(2).max(100),
@@ -35,7 +53,7 @@ const servicioSchema = z.object({
 serviciosRouter.post(
   "/",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const data = servicioSchema.parse(req.body);
     const servicio = await prisma.servicio.create({
@@ -48,7 +66,7 @@ serviciosRouter.post(
 serviciosRouter.get(
   "/mios",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const servicios = await prisma.servicio.findMany({
       where: { peluqueroId: req.user!.sub },
@@ -61,10 +79,13 @@ serviciosRouter.get(
 serviciosRouter.put(
   "/:id",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const data = servicioSchema.partial().extend({ activo: z.boolean().optional() }).parse(req.body);
+    const data = servicioSchema
+      .partial()
+      .extend({ activo: z.boolean().optional() })
+      .parse(req.body);
 
     const existente = await prisma.servicio.findUnique({ where: { id } });
     if (!existente) throw NotFound("Servicio no encontrado");
@@ -78,7 +99,7 @@ serviciosRouter.put(
 serviciosRouter.delete(
   "/:id",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const existente = await prisma.servicio.findUnique({ where: { id } });

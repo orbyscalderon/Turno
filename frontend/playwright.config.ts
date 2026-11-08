@@ -4,7 +4,12 @@ import { defineConfig, devices } from "@playwright/test";
 // y los binarios de navegador instalados una vez: npx playwright install chromium
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30000,
+  timeout: 60000,
+  // En serie: los recorridos comparten los datos del seed (misma agenda del
+  // profesional), así que en paralelo se pisarían entre ellos.
+  workers: 1,
+  fullyParallel: false,
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://localhost:5173",
     headless: true,

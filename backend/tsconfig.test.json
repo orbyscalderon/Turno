@@ -1,0 +1,14 @@
+{
+  // El tsconfig principal solo mira src/ (es lo que se compila a dist/).
+  // Con esto los tests y los scripts también se comprueban: antes un error de
+  // tipos en un test solo aparecía cuando fallaba al ejecutarse, o nunca.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Sin rootDir: el del tsconfig principal es src/ porque es lo que se
+    // compila a dist/, y tests/ y scripts/ quedan fuera de ese árbol.
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "prisma/**/*.ts"]
+}

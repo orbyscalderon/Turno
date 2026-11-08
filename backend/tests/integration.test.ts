@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import request from "supertest";
 import { crearApp } from "../src/app.js";
 import { prisma } from "../src/lib/prisma.js";
@@ -58,13 +58,17 @@ describe("auth flow (integración)", () => {
   it("borra la cuenta (GDPR) y luego el login falla", async () => {
     const del = await request(app).delete("/api/auth/me").set("Authorization", `Bearer ${token}`);
     expect(del.status).toBe(200);
-    const login = await request(app).post("/api/auth/login").send({ email, password: "password123" });
+    const login = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password: "password123" });
     expect(login.status).toBe(401);
   });
 });
 
 describe("negocios (integración)", () => {
-  afterAll(async () => { await prisma.$disconnect(); });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
 
   it("filtra por categoría", async () => {
     const res = await request(app).get("/api/negocios?categoria=estetica");
@@ -77,7 +81,7 @@ describe("negocios (integración)", () => {
     expect(res.status).toBe(200);
     // El primero debería tener distancia definida (si hay negocios con coords).
     if (res.body.negocios.length > 0 && res.body.negocios[0].distanciaKm != null) {
-      const d = res.body.negocios.map((n: any) => n.distanciaKm ?? Infinity);
+      const d = res.body.negocios.map((n: { distanciaKm?: number }) => n.distanciaKm ?? Infinity);
       const ordenado = [...d].sort((a, b) => a - b);
       expect(d).toEqual(ordenado);
     }

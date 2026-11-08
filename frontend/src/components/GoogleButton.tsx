@@ -1,14 +1,18 @@
 import { useEffect, useRef } from "react";
 
 // ID de cliente de Google (build-time). Si está vacío, el botón no se muestra.
-const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() || "";
+const GOOGLE_CLIENT_ID =
+  (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() || "";
 
 declare global {
   interface Window {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (r: { credential: string }) => void }) => void;
+          initialize: (config: {
+            client_id: string;
+            callback: (r: { credential: string }) => void;
+          }) => void;
           renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
         };
       };
@@ -73,9 +77,13 @@ export function GoogleButton({ onCredential, texto = "continue_with" }: Props) {
           logo_alignment: "center",
         });
       })
-      .catch(() => { /* sin conexión con Google: se ignora, queda el login normal */ });
+      .catch(() => {
+        /* sin conexión con Google: se ignora, queda el login normal */
+      });
 
-    return () => { cancelado = true; };
+    return () => {
+      cancelado = true;
+    };
   }, [texto]);
 
   if (!GOOGLE_CLIENT_ID) return null;

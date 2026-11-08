@@ -1,8 +1,10 @@
 User-agent: *
 Allow: /
+Allow: /negocio/
 Disallow: /verificar/
 Disallow: /reset/
 Disallow: /invitacion/
+Disallow: /pago/
 
-# Sustituye por tu dominio real al publicar:
-# Sitemap: https://tudominio.com/sitemap.xml
+# Sustituye por tu dominio real al publicar (variable APP_URL del backend).
+Sitemap: https://tudominio.com/sitemap.xml

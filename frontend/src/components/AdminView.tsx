@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, type Negocio } from "../api";
+import {
+  api,
+  ApiError,
+  assetUrl,
+  descargarCSV,
+  CATEGORIAS,
+  TIMEZONES,
+  zonaDelNavegador,
+  type Negocio,
+} from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
+import { PaquetesNegocio } from "./Bonos";
 import { MapaUbicacion } from "./MapaUbicacion";
 
 interface Miembro {
@@ -30,8 +40,13 @@ export function AdminView() {
             <p className="muted small">{t("own.selectHelp")}</p>
             {negocios.map((n) => (
               <div className="list-item" key={n.id}>
-                <div><h3>{n.nombreComercial}</h3><span className="muted small">{n.direccion}</span></div>
-                <button className="primary" onClick={() => setNegocio(n)}>{t("own.manage")}</button>
+                <div>
+                  <h3>{n.nombreComercial}</h3>
+                  <span className="muted small">{n.direccion}</span>
+                </div>
+                <button className="primary" onClick={() => setNegocio(n)}>
+                  {t("own.manage")}
+                </button>
               </div>
             ))}
             {negocios.length === 0 && <p className="muted small">{t("own.noBusinesses")}</p>}
@@ -46,7 +61,16 @@ export function AdminView() {
 
 function CrearNegocio({ onCreado }: { onCreado: () => void }) {
   const { t } = useT();
-  const [form, setForm] = useState({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+  // La zona horaria se preselecciona con la del navegador: es el valor correcto
+  // en el 99% de los casos y evita que el negocio herede la del servidor.
+  const vacio = {
+    nombreComercial: "",
+    categoria: "barberia",
+    direccion: "",
+    telefonoContacto: "",
+    timezone: zonaDelNavegador(),
+  };
+  const [form, setForm] = useState(vacio);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
@@ -55,7 +79,10 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     if (!navigator.geolocation) return;
     setUbicando(true);
     navigator.geolocation.getCurrentPosition(
-      (p) => { setCoords({ lat: p.coords.latitude, lng: p.coords.longitude }); setUbicando(false); },
+      (p) => {
+        setCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setUbicando(false);
+      },
       () => setUbicando(false),
     );
   }
@@ -65,7 +92,7 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     setMsg("");
     try {
       await api.post("/negocios", { ...form, ...(coords ?? {}) });
-      setForm({ nombreComercial: "", categoria: "barberia", direccion: "", telefonoContacto: "" });
+      setForm(vacio);
       setCoords(null);
       setMsg(t("own.created"));
       onCreado();
@@ -78,24 +105,72 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     <div className="card">
       <h2>{t("own.createBusiness")}</h2>
       <form onSubmit={crear}>
-        <label>{t("own.commercialName")}</label>
-        <input value={form.nombreComercial} onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })} required />
-        <label>{t("own.type")}</label>
-        <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-          {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        <label htmlFor="adminv-own-commercialname">{t("own.commercialName")}</label>
+        <input
+          id="adminv-own-commercialname"
+          value={form.nombreComercial}
+          onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })}
+          required
+        />
+        <label htmlFor="adminv-own-type">{t("own.type")}</label>
+        <select
+          id="adminv-own-type"
+          value={form.categoria}
+          onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+        >
+          {CATEGORIAS.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
         </select>
-        <label>{t("own.address")}</label>
-        <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
-        <label>{t("own.locationLabel")}</label>
-        <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
+        <label htmlFor="adminv-own-address">{t("own.address")}</label>
+        <input
+          id="adminv-own-address"
+          value={form.direccion}
+          onChange={(e) => setForm({ ...form, direccion: e.target.value })}
+          required
+        />
+        {/* No es una etiqueta de campo: el mapa no es un control de formulario,
+            y un <label> sin control asociado confunde al lector de pantalla. */}
+        <p className="small muted" style={{ marginBottom: 6 }}>
+          {t("own.locationLabel")}
+        </p>
+        <MapaUbicacion
+          lat={coords?.lat ?? null}
+          lng={coords?.lng ?? null}
+          onChange={(la, ln) => setCoords({ lat: la, lng: ln })}
+        />
         <div className="row" style={{ marginTop: 6 }}>
           <button type="button" className="ghost small" onClick={usarUbicacion} disabled={ubicando}>
             📍 {ubicando ? t("own.locating") : t("own.useLocationOpt")}
           </button>
         </div>
-        <label>{t("own.phone")}</label>
-        <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
-        <button className="primary" style={{ marginTop: 12 }}>{t("own.create")}</button>
+        <label htmlFor="adminv-own-phone">{t("own.phone")}</label>
+        <input
+          id="adminv-own-phone"
+          value={form.telefonoContacto}
+          onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })}
+          required
+        />
+        <label htmlFor="adminv-biz-timezone">{t("biz.timezone")}</label>
+        <select
+          id="adminv-biz-timezone"
+          value={form.timezone}
+          onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+        >
+          {(TIMEZONES.includes(form.timezone) ? TIMEZONES : [form.timezone, ...TIMEZONES]).map(
+            (tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ),
+          )}
+        </select>
+        <p className="muted small">{t("biz.timezoneHelp")}</p>
+        <button className="primary" style={{ marginTop: 12 }}>
+          {t("own.create")}
+        </button>
       </form>
       {msg && <p className="success">{msg}</p>}
     </div>
@@ -108,11 +183,18 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
   const [activos, setActivos] = useState(0);
   const [limite, setLimite] = useState(5);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
 
   function cargar() {
     api
-      .get<{ miembros: Miembro[]; activos: number; limite: number }>(`/negocios/${negocio.id}/equipo`)
-      .then((r) => { setMiembros(r.miembros); setActivos(r.activos); setLimite(r.limite); })
+      .get<{ miembros: Miembro[]; activos: number; limite: number }>(
+        `/negocios/${negocio.id}/equipo`,
+      )
+      .then((r) => {
+        setMiembros(r.miembros);
+        setActivos(r.activos);
+        setLimite(r.limite);
+      })
       .catch((e) => setError(e instanceof ApiError ? e.message : t("common.error")));
   }
   useEffect(cargar, [negocio.id]);
@@ -127,6 +209,22 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
     }
   }
 
+  // Baja definitiva del profesional: libera su plaza del plan y cancela sus citas
+  // futuras avisando a los clientes (antes no había forma de sacar a nadie).
+  async function darDeBaja(miembroId: number) {
+    if (!window.confirm(t("biz.removeMemberConfirm"))) return;
+    setError("");
+    try {
+      const r = await api.del<{ citasCanceladas: number }>(
+        `/negocios/${negocio.id}/equipo/${miembroId}`,
+      );
+      setAviso(t("biz.memberRemoved", { n: r.citasCanceladas }));
+      cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("common.error"));
+    }
+  }
+
   const pendientes = miembros.filter((m) => m.estadoAprobacion === "pendiente");
   const equipo = miembros.filter((m) => m.estadoAprobacion === "aceptado");
 
@@ -134,37 +232,71 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
     <div>
       <div className="row spread">
         <h1>{negocio.nombreComercial}</h1>
-        <button className="ghost" onClick={onVolver}>{t("common.back")}</button>
+        <button className="ghost" onClick={onVolver}>
+          {t("common.back")}
+        </button>
       </div>
 
       <div className="card">
         <div className="row spread">
           <h2>{t("own.activeTeam")}</h2>
-          <span className={`badge ${activos >= limite ? "err" : "ok"}`}>{activos} / {limite} {t("own.professionals")}</span>
+          <span className={`badge ${activos >= limite ? "err" : "ok"}`}>
+            {activos} / {limite} {t("own.professionals")}
+          </span>
         </div>
         {error && <p className="error">{error}</p>}
+        {aviso && <p className="success small">{aviso}</p>}
         {equipo.map((m) => (
           <div className="list-item" key={m.id}>
-            <div><h3>{m.usuario.nombre}</h3><span className="muted small">{m.usuario.email}</span></div>
-            <button className="ghost" onClick={() => decidir(m.id, "rechazado")}>{t("own.remove")}</button>
+            <div>
+              <h3>{m.usuario.nombre}</h3>
+              <span className="muted small">{m.usuario.email}</span>
+            </div>
+            <div className="row" style={{ gap: 6 }}>
+              {/* "Rechazar" solo le quita el alta; la baja real libera la plaza del
+                  plan y cancela (con reembolso) las citas futuras del profesional. */}
+              <button className="ghost small" onClick={() => decidir(m.id, "rechazado")}>
+                {t("own.remove")}
+              </button>
+              <button className="ghost small" onClick={() => darDeBaja(m.id)}>
+                {t("biz.removeMember")}
+              </button>
+            </div>
           </div>
         ))}
         {equipo.length === 0 && <p className="muted small">{t("own.noActivePros")}</p>}
       </div>
 
       <div className="card">
-        <h2>{t("own.pendingRequests")} ({pendientes.length})</h2>
+        <h2>
+          {t("own.pendingRequests")} ({pendientes.length})
+        </h2>
         {pendientes.map((m) => (
           <div className="list-item" key={m.id}>
-            <div><h3>{m.usuario.nombre}</h3><span className="muted small">{m.usuario.email} · {m.usuario.telefono}</span></div>
+            <div>
+              <h3>{m.usuario.nombre}</h3>
+              <span className="muted small">
+                {m.usuario.email} · {m.usuario.telefono}
+              </span>
+            </div>
             <div className="row">
-              <button className="primary" disabled={activos >= limite} onClick={() => decidir(m.id, "aceptado")}>{t("own.accept")}</button>
-              <button className="ghost" onClick={() => decidir(m.id, "rechazado")}>{t("own.reject")}</button>
+              <button
+                className="primary"
+                disabled={activos >= limite}
+                onClick={() => decidir(m.id, "aceptado")}
+              >
+                {t("own.accept")}
+              </button>
+              <button className="ghost" onClick={() => decidir(m.id, "rechazado")}>
+                {t("own.reject")}
+              </button>
             </div>
           </div>
         ))}
         {pendientes.length === 0 && <p className="muted small">{t("own.noPending")}</p>}
-        {activos >= limite && pendientes.length > 0 && <p className="error">{t("own.limitReached")}</p>}
+        {activos >= limite && pendientes.length > 0 && (
+          <p className="error">{t("own.limitReached")}</p>
+        )}
       </div>
 
       <Ubicacion negocio={negocio} />
@@ -173,34 +305,70 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       <Cobros negocioId={negocio.id} />
       <Invitacion negocioId={negocio.id} />
       <Suscripcion negocioId={negocio.id} />
+      <PaquetesNegocio negocioId={negocio.id} />
       <Analitica negocioId={negocio.id} />
     </div>
   );
 }
 
-interface Split { fianzaUsd: number; alNegocioUsd: number; turnoNetoUsd: number; feeStripeUsd: number; }
-interface Liq { desde: string; empleados: { peluquero: string; reservasPagadas: number; fianzaNegocioUsd: number }[]; totalReservas: number; totalNegocioUsd: number; }
+interface Split {
+  fianzaUsd: number;
+  alNegocioUsd: number;
+  turnoNetoUsd: number;
+  feeStripeUsd: number;
+}
+interface Liq {
+  desde: string;
+  empleados: { peluquero: string; reservasPagadas: number; fianzaNegocioUsd: number }[];
+  totalReservas: number;
+  totalNegocioUsd: number;
+}
 
 // Onboarding de Stripe Connect + desglose del reparto + liquidación por empleado.
 function Cobros({ negocioId }: { negocioId: string }) {
   const { t } = useT();
-  const [estado, setEstado] = useState<{ conectado: boolean; cobrosActivos: boolean; payout?: { intervalo: string; anchor: number } } | null>(null);
+  const [estado, setEstado] = useState<{
+    conectado: boolean;
+    cobrosActivos: boolean;
+    payout?: { intervalo: string; anchor: number };
+  } | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
   const [liq, setLiq] = useState<Liq | null>(null);
   const [msg, setMsg] = useState("");
 
   function cargar() {
-    api.get<{ conectado: boolean; cobrosActivos: boolean; payout?: { intervalo: string; anchor: number } }>(`/connect/estado/${negocioId}`).then(setEstado).catch(() => {});
-    api.get<Liq>(`/negocios/${negocioId}/liquidacion`).then(setLiq).catch(() => {});
+    api
+      .get<{
+        conectado: boolean;
+        cobrosActivos: boolean;
+        payout?: { intervalo: string; anchor: number };
+      }>(`/connect/estado/${negocioId}`)
+      .then(setEstado)
+      .catch(() => {});
+    api
+      .get<Liq>(`/negocios/${negocioId}/liquidacion`)
+      .then(setLiq)
+      .catch(() => {});
   }
   useEffect(cargar, [negocioId]);
-  useEffect(() => { api.get<Split>("/reservas/split").then(setSplit).catch(() => {}); }, []);
+  useEffect(() => {
+    api
+      .get<Split>("/reservas/split")
+      .then(setSplit)
+      .catch(() => {});
+  }, []);
 
   async function conectar() {
     setMsg("");
-    const r = await api.post<{ onboardingUrl: string | null; mensaje?: string }>("/connect/onboard", { negocioId });
+    const r = await api.post<{ onboardingUrl: string | null; mensaje?: string }>(
+      "/connect/onboard",
+      { negocioId },
+    );
     if (r.onboardingUrl) window.location.href = r.onboardingUrl;
-    else { setMsg(r.mensaje ?? "OK"); cargar(); }
+    else {
+      setMsg(r.mensaje ?? "OK");
+      cargar();
+    }
   }
 
   async function cambiarPayout(intervalo: string) {
@@ -218,8 +386,14 @@ function Cobros({ negocioId }: { negocioId: string }) {
         <p className="success">{t("own.payoutsActive")}</p>
       ) : (
         <>
-          <button className="primary" onClick={conectar}>{t("own.payoutsConnect")}</button>
-          {estado?.conectado && !estado.cobrosActivos && <p className="small" style={{ color: "var(--amber)" }}>{t("own.payoutsPending")}</p>}
+          <button className="primary" onClick={conectar}>
+            {t("own.payoutsConnect")}
+          </button>
+          {estado?.conectado && !estado.cobrosActivos && (
+            <p className="small" style={{ color: "var(--amber)" }}>
+              {t("own.payoutsPending")}
+            </p>
+          )}
         </>
       )}
 
@@ -228,8 +402,16 @@ function Cobros({ negocioId }: { negocioId: string }) {
         <div className="row" style={{ marginTop: 10 }}>
           <span className="muted small">{t("own.payoutSchedule")}:</span>
           {(["daily", "weekly", "monthly"] as const).map((iv) => (
-            <button key={iv} className={estado.payout?.intervalo === iv ? "selected small" : "ghost small"} onClick={() => cambiarPayout(iv)}>
-              {iv === "daily" ? t("own.daily") : iv === "weekly" ? t("own.weekly") : t("own.monthly")}
+            <button
+              key={iv}
+              className={estado.payout?.intervalo === iv ? "selected small" : "ghost small"}
+              onClick={() => cambiarPayout(iv)}
+            >
+              {iv === "daily"
+                ? t("own.daily")
+                : iv === "weekly"
+                  ? t("own.weekly")
+                  : t("own.monthly")}
             </button>
           ))}
         </div>
@@ -238,12 +420,23 @@ function Cobros({ negocioId }: { negocioId: string }) {
 
       {/* Desglose de cada fianza (contando la comisión de Stripe) */}
       {split && (
-        <div className="card" style={{ background: "var(--surface-2)", marginTop: 14, marginBottom: 0 }}>
-          <h3 style={{ marginBottom: 8 }}>{t("own.splitTitle")}: ${split.fianzaUsd.toFixed(2)}</h3>
+        <div
+          className="card"
+          style={{ background: "var(--surface-2)", marginTop: 14, marginBottom: 0 }}
+        >
+          <h3 style={{ marginBottom: 8 }}>
+            {t("own.splitTitle")}: ${split.fianzaUsd.toFixed(2)}
+          </h3>
           <div className="row" style={{ gap: 8 }}>
-            <span className="badge ok">{t("own.splitBusiness")}: ${split.alNegocioUsd.toFixed(2)}</span>
-            <span className="badge">{t("own.splitPlatform")}: ${split.turnoNetoUsd.toFixed(2)}</span>
-            <span className="badge warn">{t("own.splitStripe")}: ${split.feeStripeUsd.toFixed(2)}</span>
+            <span className="badge ok">
+              {t("own.splitBusiness")}: ${split.alNegocioUsd.toFixed(2)}
+            </span>
+            <span className="badge">
+              {t("own.splitPlatform")}: ${split.turnoNetoUsd.toFixed(2)}
+            </span>
+            <span className="badge warn">
+              {t("own.splitStripe")}: ${split.feeStripeUsd.toFixed(2)}
+            </span>
           </div>
         </div>
       )}
@@ -254,11 +447,22 @@ function Cobros({ negocioId }: { negocioId: string }) {
           <div className="row spread">
             <h3>{t("own.settlement")}</h3>
             {liq.empleados.length > 0 && liq.totalReservas > 0 && (
-              <button className="ghost small" onClick={() => descargarCSV(
-                `liquidacion-${liq.desde}.csv`,
-                ["Empleado", "Reservas pagadas", "Para el negocio (USD)"],
-                liq.empleados.map((e) => [e.peluquero, e.reservasPagadas, e.fianzaNegocioUsd.toFixed(2)]),
-              )}>⬇ {t("common.download")}</button>
+              <button
+                className="ghost small"
+                onClick={() =>
+                  descargarCSV(
+                    `liquidacion-${liq.desde}.csv`,
+                    ["Empleado", "Reservas pagadas", "Para el negocio (USD)"],
+                    liq.empleados.map((e) => [
+                      e.peluquero,
+                      e.reservasPagadas,
+                      e.fianzaNegocioUsd.toFixed(2),
+                    ]),
+                  )
+                }
+              >
+                ⬇ {t("common.download")}
+              </button>
             )}
           </div>
           <p className="muted small">{t("own.settlementHelp")}</p>
@@ -268,13 +472,22 @@ function Cobros({ negocioId }: { negocioId: string }) {
             <>
               {liq.empleados.map((e) => (
                 <div className="list-item" key={e.peluquero}>
-                  <div><h3>{e.peluquero}</h3><span className="muted small">{e.reservasPagadas} {t("own.bookings")}</span></div>
+                  <div>
+                    <h3>{e.peluquero}</h3>
+                    <span className="muted small">
+                      {e.reservasPagadas} {t("own.bookings")}
+                    </span>
+                  </div>
                   <strong>${e.fianzaNegocioUsd.toFixed(2)}</strong>
                 </div>
               ))}
               <div className="row spread" style={{ marginTop: 8 }}>
-                <span className="muted small">{t("own.forBusiness")} · {liq.totalReservas} {t("own.bookings")}</span>
-                <strong className="grad-text" style={{ fontSize: 16 }}>${liq.totalNegocioUsd.toFixed(2)}</strong>
+                <span className="muted small">
+                  {t("own.forBusiness")} · {liq.totalReservas} {t("own.bookings")}
+                </span>
+                <strong className="grad-text" style={{ fontSize: 16 }}>
+                  ${liq.totalNegocioUsd.toFixed(2)}
+                </strong>
               </div>
             </>
           )}
@@ -299,15 +512,35 @@ function Invitacion({ negocioId }: { negocioId: string }) {
       {url && (
         <div className="row" style={{ marginTop: 10 }}>
           <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
-          <button className="ghost" onClick={() => navigator.clipboard?.writeText(url)}>{t("own.copy")}</button>
+          <button className="ghost" onClick={() => navigator.clipboard?.writeText(url)}>
+            {t("own.copy")}
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-interface Plan { id: string; nombre: string; mensualUsd: number; anualUsd: number; anualPorMes: number; ahorroAnualUsd: number; maxNegocios: number; maxPeluqueros: number; }
-interface EstadoSub { estadoSuscripcion: string; plan: string | null; intervaloPlan: string | null; suscripcionHasta: string | null; }
+interface Plan {
+  id: string;
+  nombre: string;
+  mensualUsd: number;
+  anualUsd: number;
+  anualPorMes: number;
+  ahorroAnualUsd: number;
+  maxNegocios: number;
+  maxPeluqueros: number;
+}
+interface EstadoSub {
+  estadoSuscripcion: string;
+  plan: string | null;
+  intervaloPlan: string | null;
+  suscripcionHasta: string | null;
+  // Estado efectivo: la FECHA manda sobre el enum (una prueba caducada no es vigente).
+  vigente?: boolean;
+  diasRestantes?: number | null;
+  tienePortal?: boolean;
+}
 
 function Suscripcion({ negocioId }: { negocioId: string }) {
   const { t } = useT();
@@ -320,54 +553,154 @@ function Suscripcion({ negocioId }: { negocioId: string }) {
     api.get<EstadoSub>(`/suscripcion/estado/${negocioId}`).then(setEstado);
   }
   useEffect(cargar, [negocioId]);
-  useEffect(() => { api.get<{ planes: Plan[] }>("/suscripcion/planes").then((r) => setPlanes(r.planes)); }, []);
+  useEffect(() => {
+    api.get<{ planes: Plan[] }>("/suscripcion/planes").then((r) => setPlanes(r.planes));
+  }, []);
 
   async function elegir(plan: string) {
     setMsg("");
-    const r = await api.post<{ modo: string; checkoutUrl: string | null; mensaje?: string }>("/suscripcion/checkout", { negocioId, plan, intervalo });
+    const r = await api.post<{ modo: string; checkoutUrl: string | null; mensaje?: string }>(
+      "/suscripcion/checkout",
+      { negocioId, plan, intervalo },
+    );
     if (r.checkoutUrl) window.location.href = r.checkoutUrl;
-    else { setMsg(r.mensaje ?? "OK"); cargar(); }
+    else {
+      setMsg(r.mensaje ?? "OK");
+      cargar();
+    }
   }
+
+  // Portal de Stripe: cambiar de plan, actualizar tarjeta, facturas y cancelar.
+  // Sin esto el negocio no tenía ninguna forma de gestionar su propio pago.
+  async function abrirPortal() {
+    setMsg("");
+    try {
+      const r = await api.post<{ portalUrl: string | null; mensaje?: string }>(
+        "/suscripcion/portal",
+        { negocioId },
+      );
+      if (r.portalUrl) window.location.href = r.portalUrl;
+      else setMsg(r.mensaje ?? "");
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  async function cancelar() {
+    if (!window.confirm(t("sub.cancelConfirm"))) return;
+    setMsg("");
+    try {
+      const r = await api.post<{ mensaje: string }>("/suscripcion/cancelar", { negocioId });
+      setMsg(r.mensaje);
+      cargar();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : t("common.error"));
+    }
+  }
+
+  const dias = estado?.diasRestantes ?? null;
 
   return (
     <div className="card">
       <h2>{t("own.subscription")}</h2>
       {estado && (
         <p className="small">
-          {t("own.subStatus")}: <span className={`badge ${estado.estadoSuscripcion === "activo" ? "ok" : estado.estadoSuscripcion === "vencido" ? "err" : "warn"}`}>{estado.estadoSuscripcion}</span>
-          {estado.plan && <> · {t("own.currentPlan")}: <strong>{estado.plan}</strong> ({estado.intervaloPlan})</>}
-          {estado.suscripcionHasta && <> · {t("own.subUntil")} {new Date(estado.suscripcionHasta).toLocaleDateString()}</>}
+          {t("own.subStatus")}:{" "}
+          <span
+            className={`badge ${estado.vigente === false ? "err" : estado.estadoSuscripcion === "activo" ? "ok" : "warn"}`}
+          >
+            {estado.estadoSuscripcion}
+          </span>
+          {estado.plan && (
+            <>
+              {" "}
+              · {t("own.currentPlan")}: <strong>{estado.plan}</strong> ({estado.intervaloPlan})
+            </>
+          )}
+          {estado.suscripcionHasta && (
+            <>
+              {" "}
+              · {t("own.subUntil")} {new Date(estado.suscripcionHasta).toLocaleDateString()}
+            </>
+          )}
+          {dias != null && dias >= 0 && <> · {t("sub.daysLeft", { dias })}</>}
         </p>
       )}
 
+      {/* Avisos de vigencia: antes la fecha de fin se ignoraba por completo. */}
+      {estado?.vigente === false && <p className="error small">{t("sub.expired")}</p>}
+      {estado?.vigente && dias != null && dias <= 7 && (
+        <p className="small warn">{t("sub.expiringSoon", { dias })}</p>
+      )}
+
+      {/* Autogestión de la facturación */}
+      <div className="row" style={{ gap: 8, margin: "8px 0" }}>
+        {estado?.tienePortal && (
+          <button className="ghost small" onClick={abrirPortal} title={t("sub.manageHelp")}>
+            {t("sub.manage")}
+          </button>
+        )}
+        {estado?.plan && estado?.vigente && (
+          <button className="ghost small" onClick={cancelar}>
+            {t("sub.cancel")}
+          </button>
+        )}
+      </div>
+
       {/* Toggle mensual / anual */}
       <div className="lang-toggle" style={{ margin: "10px 0 16px" }}>
-        <button className={intervalo === "mensual" ? "on" : ""} onClick={() => setIntervalo("mensual")}>{t("own.monthly")}</button>
-        <button className={intervalo === "anual" ? "on" : ""} onClick={() => setIntervalo("anual")}>{t("own.annual")} · {t("own.save2months")}</button>
+        <button
+          className={intervalo === "mensual" ? "on" : ""}
+          onClick={() => setIntervalo("mensual")}
+        >
+          {t("own.monthly")}
+        </button>
+        <button className={intervalo === "anual" ? "on" : ""} onClick={() => setIntervalo("anual")}>
+          {t("own.annual")} · {t("own.save2months")}
+        </button>
       </div>
 
       <div className="grid grid-2">
         {planes.map((p) => {
           const activo = estado?.plan === p.id && estado?.estadoSuscripcion === "activo";
           return (
-            <div className="card" key={p.id} style={{ margin: 0, borderColor: activo ? "var(--brand-500)" : undefined }}>
+            <div
+              className="card"
+              key={p.id}
+              style={{ margin: 0, borderColor: activo ? "var(--brand-500)" : undefined }}
+            >
               <div className="row spread">
                 <h3>{p.nombre}</h3>
                 {intervalo === "anual" && <span className="badge ok">-${p.ahorroAnualUsd}</span>}
               </div>
               {intervalo === "mensual" ? (
-                <div style={{ margin: "8px 0" }}><span style={{ fontSize: 30, fontWeight: 800 }}>${p.mensualUsd}</span><span className="muted">{t("own.perMonth")}</span></div>
+                <div style={{ margin: "8px 0" }}>
+                  <span style={{ fontSize: 30, fontWeight: 800 }}>${p.mensualUsd}</span>
+                  <span className="muted">{t("own.perMonth")}</span>
+                </div>
               ) : (
                 <div style={{ margin: "8px 0" }}>
-                  <span style={{ fontSize: 30, fontWeight: 800 }}>${p.anualUsd}</span><span className="muted">{t("own.perYear")}</span>
-                  <div className="muted small">${p.anualPorMes}{t("own.perMonth")} · {t("own.annualBilled")}</div>
+                  <span style={{ fontSize: 30, fontWeight: 800 }}>${p.anualUsd}</span>
+                  <span className="muted">{t("own.perYear")}</span>
+                  <div className="muted small">
+                    ${p.anualPorMes}
+                    {t("own.perMonth")} · {t("own.annualBilled")}
+                  </div>
                 </div>
               )}
               <ul className="muted small" style={{ margin: "8px 0 10px", paddingLeft: 18 }}>
-                <li>✅ {p.maxNegocios} {t("plan.businessesLabel")}</li>
-                <li>✅ {t("plan.upTo")} {p.maxPeluqueros} {t("plan.prosLabel")}</li>
+                <li>
+                  ✅ {p.maxNegocios} {t("plan.businessesLabel")}
+                </li>
+                <li>
+                  ✅ {t("plan.upTo")} {p.maxPeluqueros} {t("plan.prosLabel")}
+                </li>
               </ul>
-              <button className={activo ? "ghost" : "primary"} style={{ width: "100%", marginTop: 6 }} onClick={() => elegir(p.id)}>
+              <button
+                className={activo ? "ghost" : "primary"}
+                style={{ width: "100%", marginTop: 6 }}
+                onClick={() => elegir(p.id)}
+              >
                 {activo ? `✓ ${t("own.currentPlan")}` : t("own.choosePlan")}
               </button>
             </div>
@@ -387,12 +720,16 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
   );
   const [msg, setMsg] = useState("");
   const [ubicando, setUbicando] = useState(false);
+  const [timezone, setTimezone] = useState(negocio.timezone ?? zonaDelNavegador());
 
   function usarUbicacion() {
     if (!navigator.geolocation) return;
     setUbicando(true);
     navigator.geolocation.getCurrentPosition(
-      (p) => { setCoords({ lat: p.coords.latitude, lng: p.coords.longitude }); setUbicando(false); },
+      (p) => {
+        setCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setUbicando(false);
+      },
       () => setUbicando(false),
     );
   }
@@ -400,7 +737,7 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
   async function guardar() {
     setMsg("");
     try {
-      await api.patch(`/negocios/${negocio.id}`, { direccion, ...(coords ?? {}) });
+      await api.patch(`/negocios/${negocio.id}`, { direccion, timezone, ...(coords ?? {}) });
       setMsg(t("own.locationSaved"));
     } catch (err) {
       setMsg(err instanceof ApiError ? err.message : t("common.error"));
@@ -411,18 +748,48 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
     <div className="card">
       <h2>{t("own.locationTitle")}</h2>
       <p className="muted small">{t("own.locationHelp")}</p>
-      <label>{t("own.address")}</label>
-      <input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+      <label htmlFor="adminv-own-address-2">{t("own.address")}</label>
+      <input
+        id="adminv-own-address-2"
+        value={direccion}
+        onChange={(e) => setDireccion(e.target.value)}
+      />
 
-      <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
+      {/* Zona horaria: de ella dependen los huecos, la agenda y los recordatorios.
+          Antes el campo existía en la base de datos pero no se usaba en ningún sitio. */}
+      <label style={{ marginTop: 10 }}>{t("biz.timezone")}</label>
+      <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+        {TIMEZONES.map((tz) => (
+          <option key={tz} value={tz}>
+            {tz}
+          </option>
+        ))}
+      </select>
+      <p className="muted small">{t("biz.timezoneHelp")}</p>
+
+      <MapaUbicacion
+        lat={coords?.lat ?? null}
+        lng={coords?.lng ?? null}
+        onChange={(la, ln) => setCoords({ lat: la, lng: ln })}
+      />
 
       <div className="row" style={{ marginTop: 6 }}>
         <button type="button" className="ghost small" onClick={usarUbicacion} disabled={ubicando}>
           📍 {ubicando ? t("own.locating") : t("own.useLocationOpt")}
         </button>
-        {coords && <a href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`} target="_blank" rel="noreferrer">{t("mkt.viewMap")}</a>}
+        {coords && (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t("mkt.viewMap")}
+          </a>
+        )}
       </div>
-      <button className="primary" style={{ marginTop: 12 }} onClick={guardar}>{t("own.saveLocation")}</button>
+      <button className="primary" style={{ marginTop: 12 }} onClick={guardar}>
+        {t("own.saveLocation")}
+      </button>
       {msg && <p className="success">{msg}</p>}
     </div>
   );
@@ -438,7 +805,11 @@ function ImagenNegocio({ negocioId, tipo }: { negocioId: string; tipo: "logo" | 
     if (!file) return;
     setError("");
     try {
-      const r = await api.upload<{ logoUrl?: string; coverUrl?: string }>(`/uploads/${tipo}/${negocioId}`, "imagen", file);
+      const r = await api.upload<{ logoUrl?: string; coverUrl?: string }>(
+        `/uploads/${tipo}/${negocioId}`,
+        "imagen",
+        file,
+      );
       setUrl(r.coverUrl ?? r.logoUrl ?? null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("common.error"));
@@ -450,7 +821,20 @@ function ImagenNegocio({ negocioId, tipo }: { negocioId: string; tipo: "logo" | 
       <p className="muted small">{esCover ? t("own.coverHelp") : t("own.logoHelp")}</p>
       <input type="file" accept="image/*" onChange={subir} />
       {error && <p className="error">{error}</p>}
-      {url && <div style={{ marginTop: 10 }}><img src={assetUrl(url)} alt={tipo} style={{ height: esCover ? 120 : 64, width: esCover ? "100%" : 64, objectFit: "cover", borderRadius: esCover ? 12 : "50%" }} /></div>}
+      {url && (
+        <div style={{ marginTop: 10 }}>
+          <img
+            src={assetUrl(url)}
+            alt={tipo}
+            style={{
+              height: esCover ? 120 : 64,
+              width: esCover ? "100%" : 64,
+              objectFit: "cover",
+              borderRadius: esCover ? 12 : "50%",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -466,7 +850,10 @@ function Analitica({ negocioId }: { negocioId: string }) {
   const { t } = useT();
   const [data, setData] = useState<AnaliticaData | null>(null);
   useEffect(() => {
-    api.get<AnaliticaData>(`/negocios/${negocioId}/analitica`).then(setData).catch(() => {});
+    api
+      .get<AnaliticaData>(`/negocios/${negocioId}/analitica`)
+      .then(setData)
+      .catch(() => {});
   }, [negocioId]);
 
   if (!data) return null;
@@ -475,18 +862,30 @@ function Analitica({ negocioId }: { negocioId: string }) {
       <h2>{t("own.analytics")}</h2>
       <div className="grid grid-2">
         <Stat label={t("own.totalBookings")} value={data.totalReservas} icon="📅" />
-        <Stat label={t("own.incomeCompleted")} value={`$${data.ingresoServiciosUsd.toFixed(2)}`} icon="💰" variant="green" />
+        <Stat
+          label={t("own.incomeCompleted")}
+          value={`$${data.ingresoServiciosUsd.toFixed(2)}`}
+          icon="💰"
+          variant="green"
+        />
       </div>
       {data.porEstado.length > 0 && (
         <div className="row" style={{ marginTop: 8 }}>
-          {data.porEstado.map((e) => <span className="badge" key={e.estado}>{e.estado}: {e.total}</span>)}
+          {data.porEstado.map((e) => (
+            <span className="badge" key={e.estado}>
+              {e.estado}: {e.total}
+            </span>
+          ))}
         </div>
       )}
       {data.porPeluquero.length > 0 && (
         <div style={{ marginTop: 12 }}>
           <h3>{t("own.bookingsByPro")}</h3>
           {data.porPeluquero.map((p) => (
-            <div className="list-item" key={p.peluquero}><span>{p.peluquero}</span><strong>{p.reservas}</strong></div>
+            <div className="list-item" key={p.peluquero}>
+              <span>{p.peluquero}</span>
+              <strong>{p.reservas}</strong>
+            </div>
           ))}
         </div>
       )}

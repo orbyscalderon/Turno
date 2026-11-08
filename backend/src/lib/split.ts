@@ -5,14 +5,14 @@ import { env } from "../config/env.js";
 // La comisión de Stripe se reparte según FEE_STRIPE_REPARTO para que nadie la asuma sola.
 
 export interface SplitFianza {
-  fianzaUsd: number;         // fianza base ($2)
-  montoCobradoUsd: number;   // lo que realmente paga el cliente (fianza, o fianza+fee si reparto=cliente)
-  feeStripeUsd: number;      // lo que se lleva Stripe
+  fianzaUsd: number; // fianza base ($2)
+  montoCobradoUsd: number; // lo que realmente paga el cliente (fianza, o fianza+fee si reparto=cliente)
+  feeStripeUsd: number; // lo que se lleva Stripe
   applicationFeeUsd: number; // lo que Turno retiene en Stripe (comisión + parte del fee del negocio)
-  alNegocioUsd: number;      // lo que recibe el negocio (neto)
-  turnoNetoUsd: number;      // lo que le queda a Turno tras el fee de Stripe
-  feeNegocioUsd: number;     // parte del fee de Stripe que asume el negocio
-  feePlataformaUsd: number;  // parte del fee de Stripe que asume Turno
+  alNegocioUsd: number; // lo que recibe el negocio (neto)
+  turnoNetoUsd: number; // lo que le queda a Turno tras el fee de Stripe
+  feeNegocioUsd: number; // parte del fee de Stripe que asume el negocio
+  feePlataformaUsd: number; // parte del fee de Stripe que asume Turno
   reparto: string;
 }
 
@@ -24,7 +24,10 @@ export function calcularSplitFianza(): SplitFianza {
   const reparto = env.feeStripeReparto;
 
   // Si el cliente paga el fee encima, el fee se calcula sobre el monto total cobrado.
-  const montoCobrado = reparto === "cliente" ? r2(fianza + (fianza * env.stripeFeePct) / 100 + env.stripeFeeFijo) : fianza;
+  const montoCobrado =
+    reparto === "cliente"
+      ? r2(fianza + (fianza * env.stripeFeePct) / 100 + env.stripeFeeFijo)
+      : fianza;
   const feeStripe = r2((montoCobrado * env.stripeFeePct) / 100 + env.stripeFeeFijo);
 
   let feeNegocio = 0;

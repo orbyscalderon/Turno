@@ -20,7 +20,8 @@ async function assertDueno(negocioId: string, usuarioId: number) {
 // Construye el objeto de calendario de payouts para Stripe.
 function scheduleFor(intervalo: string, anchor: number) {
   if (intervalo === "monthly") return { interval: "monthly" as const, monthly_anchor: anchor };
-  if (intervalo === "weekly") return { interval: "weekly" as const, weekly_anchor: "monday" as const };
+  if (intervalo === "weekly")
+    return { interval: "weekly" as const, weekly_anchor: "monday" as const };
   return { interval: "daily" as const };
 }
 
@@ -39,7 +40,11 @@ connectRouter.post(
         where: { id: negocioId },
         data: { cobrosActivos: true, stripeConnectAccountId: `acct_mock_${negocioId.slice(0, 8)}` },
       });
-      return res.json({ modo: "mock", onboardingUrl: null, mensaje: "Cobros activados (simulado)" });
+      return res.json({
+        modo: "mock",
+        onboardingUrl: null,
+        mensaje: "Cobros activados (simulado)",
+      });
     }
 
     // --- Modo Stripe: crea cuenta Express (si no existe) y el link de onboarding ---
@@ -57,7 +62,10 @@ connectRouter.post(
         settings: { payouts: { schedule } },
       });
       accountId = account.id;
-      await prisma.negocio.update({ where: { id: negocioId }, data: { stripeConnectAccountId: accountId } });
+      await prisma.negocio.update({
+        where: { id: negocioId },
+        data: { stripeConnectAccountId: accountId },
+      });
     } else {
       // Reaplica el calendario por si cambió la configuración.
       await stripeClient.accounts.update(accountId, { settings: { payouts: { schedule } } });
@@ -88,7 +96,10 @@ connectRouter.post(
       .parse(req.body);
     const negocio = await assertDueno(negocioId, req.user!.sub);
 
-    await prisma.negocio.update({ where: { id: negocioId }, data: { payoutInterval: intervalo, payoutAnchor: anchor } });
+    await prisma.negocio.update({
+      where: { id: negocioId },
+      data: { payoutInterval: intervalo, payoutAnchor: anchor },
+    });
 
     // Si ya está conectado a Stripe real, aplica el cambio en la cuenta.
     if (env.paymentProvider === "stripe" && stripeClient && negocio.stripeConnectAccountId) {
@@ -123,7 +134,10 @@ connectRouter.get(
         const acct = await stripeClient.accounts.retrieve(negocio.stripeConnectAccountId);
         const activos = !!acct.charges_enabled;
         if (activos !== negocio.cobrosActivos) {
-          await prisma.negocio.update({ where: { id: negocio.id }, data: { cobrosActivos: activos } });
+          await prisma.negocio.update({
+            where: { id: negocio.id },
+            data: { cobrosActivos: activos },
+          });
         }
         return res.json({ conectado: true, cobrosActivos: activos, payout });
       } catch {

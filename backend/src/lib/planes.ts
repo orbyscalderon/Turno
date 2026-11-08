@@ -12,7 +12,10 @@ export const LIMITES_PLAN = {
  * - Con plan activo: el tope del plan.
  * - Sin plan/estado raro: tope conservador (Básico).
  */
-export function limitePeluqueros(plan: string | null | undefined, estadoSuscripcion: string): number {
+export function limitePeluqueros(
+  plan: string | null | undefined,
+  estadoSuscripcion: string,
+): number {
   if (estadoSuscripcion === "prueba") return LIMITES_PLAN.prueba.peluqueros;
   if (plan === "pro") return LIMITES_PLAN.pro.peluqueros;
   if (plan === "basico") return LIMITES_PLAN.basico.peluqueros;

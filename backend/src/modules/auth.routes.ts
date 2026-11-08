@@ -1,23 +1,68 @@
 import { Router } from "express";
+import type { Rol } from "@prisma/client";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { prisma } from "../lib/prisma.js";
-import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
+import {
+  hashPassword,
+  verifyPassword,
+  signToken,
+  firmarDesafio2fa,
+  verificarDesafio2fa,
+} from "../lib/auth.js";
+import { comprobarSegundoFactor } from "./dosfactores.routes.js";
 import { BadRequest, Forbidden, Unauthorized } from "../lib/errors.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth } from "../middleware/auth.js";
 import { env } from "../config/env.js";
 import { enviarEmail, emailVerificacion, emailReset } from "../lib/email.js";
-import { emitirRefreshToken, validarRefreshToken, rotarRefreshToken, revocarRefreshToken } from "../lib/refresh.js";
+import {
+  emitirRefreshToken,
+  validarRefreshToken,
+  rotarRefreshToken,
+  revocarRefreshToken,
+  revocarTodos,
+} from "../lib/refresh.js";
+import { auditar } from "../lib/audit.js";
+import { fechaISO, fechaUTC } from "../lib/time.js";
 
 export const authRouter = Router();
 
 // Emite el par de tokens (acceso corto + refresh) y crea la sesión.
-async function emitirSesion(usuario: { id: number; rol: any; email: string }) {
+async function emitirSesion(usuario: { id: number; rol: Rol; email: string }) {
   const token = signToken({ sub: usuario.id, rol: usuario.rol, email: usuario.email });
   const refreshToken = await emitirRefreshToken(usuario.id);
   return { token, refreshToken };
+}
+
+// Respuesta estándar de "sesión abierta". Un superadmin sin segundo factor
+// recibe `debeActivar2fa`: puede entrar (si no, no podría ni configurarlo),
+// pero el panel de superadmin le queda cerrado hasta que lo active.
+function respuestaSesion(
+  usuario: {
+    id: number;
+    nombre: string;
+    email: string;
+    rol: Rol;
+    emailVerificadoEn: Date | null;
+    totpActivadoEn?: Date | null;
+  },
+  sesion: { token: string; refreshToken: string },
+) {
+  return {
+    usuario: {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+      emailVerificadoEn: usuario.emailVerificadoEn,
+      dosFactoresActivo: Boolean(usuario.totpActivadoEn),
+    },
+    debeActivar2fa:
+      usuario.rol === "superadmin" && env.exigir2faSuperadmin && !usuario.totpActivadoEn,
+    ...sesion,
+  };
 }
 
 async function crearYEnviarVerificacion(usuarioId: number, nombre: string, email: string) {
@@ -30,10 +75,15 @@ async function crearYEnviarVerificacion(usuarioId: number, nombre: string, email
   await enviarEmail({ to: email, subject: tpl.subject, html: tpl.html });
 }
 
+// El email se normaliza SIEMPRE (trim + minúsculas). Antes no se hacía en el
+// registro ni en el login, pero sí en el acceso con Google: "Juan@x.com" y
+// "juan@x.com" creaban dos cuentas distintas y Google no encontraba la primera.
+const EMAIL = z.string().trim().toLowerCase().email().max(150);
+
 const registroSchema = z.object({
-  nombre: z.string().min(2).max(100),
-  telefono: z.string().min(6).max(20),
-  email: z.string().email().max(150),
+  nombre: z.string().trim().min(2).max(100),
+  telefono: z.string().trim().min(6).max(20),
+  email: EMAIL,
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
   // El superadmin no se crea por registro público.
   rol: z.enum(["admin_negocio", "peluquero", "cliente"]),
@@ -65,7 +115,7 @@ authRouter.post(
 );
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: EMAIL,
   password: z.string().min(1),
 });
 
@@ -81,14 +131,39 @@ authRouter.post(
     if (!ok) throw Unauthorized("Credenciales inválidas");
     if (usuario.bloqueado) throw Forbidden("Cuenta suspendida. Contacta con soporte.");
 
+    // Con segundo factor activo la contraseña NO abre sesión: devuelve un
+    // desafío de 5 minutos que se canjea en /2fa/verificar.
+    if (usuario.totpActivadoEn) {
+      return res.json({ requiere2fa: true, desafio: firmarDesafio2fa(usuario.id) });
+    }
+
     const sesion = await emitirSesion(usuario);
-    res.json({
-      usuario: {
-        id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
-        emailVerificadoEn: usuario.emailVerificadoEn,
-      },
-      ...sesion,
-    });
+    res.json(respuestaSesion(usuario, sesion));
+  }),
+);
+
+// ---------- Segundo paso del login: canjear el desafío por la sesión ----------
+const verificar2faSchema = z.object({
+  desafio: z.string().min(10),
+  codigo: z.string().trim().min(6).max(12),
+});
+
+authRouter.post(
+  "/2fa/verificar",
+  asyncHandler(async (req, res) => {
+    const { desafio, codigo } = verificar2faSchema.parse(req.body);
+
+    const usuarioId = verificarDesafio2fa(desafio);
+    if (!usuarioId) throw Unauthorized("El desafío ha caducado. Vuelve a iniciar sesión.");
+
+    const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario || usuario.bloqueado) throw Unauthorized("Sesión no válida");
+
+    const resultado = await comprobarSegundoFactor(usuarioId, codigo);
+    if (!resultado) throw Unauthorized("Código incorrecto");
+
+    const sesion = await emitirSesion(usuario);
+    res.json({ ...respuestaSesion(usuario, sesion), via: resultado.via });
   }),
 );
 
@@ -109,7 +184,10 @@ authRouter.post(
     const cliente = new OAuth2Client(env.googleClientId);
     let payload: TokenPayload | undefined;
     try {
-      const ticket = await cliente.verifyIdToken({ idToken: credential, audience: env.googleClientId });
+      const ticket = await cliente.verifyIdToken({
+        idToken: credential,
+        audience: env.googleClientId,
+      });
       payload = ticket.getPayload();
     } catch {
       throw Unauthorized("No se pudo verificar el token de Google");
@@ -144,14 +222,13 @@ authRouter.post(
       usuario = await prisma.usuario.update({ where: { id: usuario.id }, data: { fotoUrl } });
     }
 
+    // Google verifica quién eres, no reemplaza al segundo factor de esta cuenta.
+    if (usuario.totpActivadoEn) {
+      return res.json({ requiere2fa: true, desafio: firmarDesafio2fa(usuario.id) });
+    }
+
     const sesion = await emitirSesion(usuario);
-    res.json({
-      usuario: {
-        id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
-        emailVerificadoEn: usuario.emailVerificadoEn,
-      },
-      ...sesion,
-    });
+    res.json(respuestaSesion(usuario, sesion));
   }),
 );
 
@@ -192,7 +269,10 @@ authRouter.post(
       throw BadRequest("Enlace de verificación inválido o expirado", "TOKEN_INVALIDO");
     }
     await prisma.$transaction([
-      prisma.usuario.update({ where: { id: registro.usuarioId }, data: { emailVerificadoEn: new Date() } }),
+      prisma.usuario.update({
+        where: { id: registro.usuarioId },
+        data: { emailVerificadoEn: new Date() },
+      }),
       prisma.emailVerificationToken.update({ where: { id: registro.id }, data: { usado: true } }),
     ]);
     res.json({ ok: true, mensaje: "Email verificado" });
@@ -206,7 +286,8 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user!.sub } });
     if (!usuario) throw Unauthorized();
-    if (usuario.emailVerificadoEn) return res.json({ ok: true, mensaje: "El email ya está verificado" });
+    if (usuario.emailVerificadoEn)
+      return res.json({ ok: true, mensaje: "El email ya está verificado" });
     await crearYEnviarVerificacion(usuario.id, usuario.nombre, usuario.email);
     res.json({ ok: true, mensaje: "Email de verificación reenviado" });
   }),
@@ -220,8 +301,14 @@ authRouter.get(
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user!.sub },
       select: {
-        id: true, nombre: true, email: true, telefono: true, rol: true, fotoUrl: true,
-        emailVerificadoEn: true, createdAt: true,
+        id: true,
+        nombre: true,
+        email: true,
+        telefono: true,
+        rol: true,
+        fotoUrl: true,
+        emailVerificadoEn: true,
+        createdAt: true,
       },
     });
     res.json({ usuario });
@@ -233,7 +320,7 @@ authRouter.get(
 authRouter.post(
   "/password/olvide",
   asyncHandler(async (req, res) => {
-    const { email } = z.object({ email: z.string().email() }).parse(req.body);
+    const { email } = z.object({ email: EMAIL }).parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { email } });
 
     if (usuario) {
@@ -269,9 +356,22 @@ authRouter.post(
         data: { passwordHash: await hashPassword(password) },
       }),
       prisma.passwordResetToken.update({ where: { id: registro.id }, data: { usado: true } }),
+      // Invalida el resto de tokens de reset pendientes de ese usuario.
+      prisma.passwordResetToken.updateMany({
+        where: { usuarioId: registro.usuarioId, usado: false },
+        data: { usado: true },
+      }),
     ]);
 
-    res.json({ ok: true, mensaje: "Contraseña actualizada" });
+    // Cambiar la contraseña DEBE cerrar las sesiones abiertas: si alguien había
+    // robado la sesión, antes seguía dentro aunque la víctima cambiara la clave.
+    await revocarTodos(registro.usuarioId);
+    await auditar(registro.usuarioId, "password_restablecida", `usuario=${registro.usuarioId}`);
+
+    res.json({
+      ok: true,
+      mensaje: "Contraseña actualizada. Se han cerrado las sesiones abiertas.",
+    });
   }),
 );
 
@@ -284,7 +384,15 @@ authRouter.get(
     const [usuario, reservas, servicios, negocios, resenas] = await Promise.all([
       prisma.usuario.findUnique({
         where: { id },
-        select: { id: true, nombre: true, email: true, telefono: true, rol: true, createdAt: true, emailVerificadoEn: true },
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          telefono: true,
+          rol: true,
+          createdAt: true,
+          emailVerificadoEn: true,
+        },
       }),
       prisma.reservacion.findMany({ where: { OR: [{ clienteId: id }, { peluqueroId: id }] } }),
       prisma.servicio.findMany({ where: { peluqueroId: id } }),
@@ -292,7 +400,14 @@ authRouter.get(
       prisma.resena.findMany({ where: { clienteId: id } }),
     ]);
     res.setHeader("Content-Disposition", 'attachment; filename="mis-datos-turno.json"');
-    res.json({ exportadoEn: new Date().toISOString(), usuario, reservas, servicios, negocios, resenas });
+    res.json({
+      exportadoEn: new Date().toISOString(),
+      usuario,
+      reservas,
+      servicios,
+      negocios,
+      resenas,
+    });
   }),
 );
 
@@ -306,12 +421,57 @@ authRouter.delete(
     if (req.user!.rol === "superadmin") {
       throw Forbidden("Un superadmin no puede eliminar su propia cuenta.");
     }
-    // Las reservas tienen relación Restrict a usuario; se limpian a mano antes de borrar la cuenta.
-    // El resto (servicios, disponibilidad, negocios, tokens, membresías) cae por onDelete: Cascade.
+    // ANONIMIZACIÓN en lugar de borrado físico.
+    // Antes se hacía `deleteMany` de todas las reservas donde el usuario era cliente
+    // O profesional: eso borraba el historial y la contabilidad de negocios de
+    // terceros. Ahora se eliminan los datos personales (que es lo que exige el
+    // derecho al olvido) y se conserva el registro contable ya anonimizado.
+    const ahora = new Date();
     await prisma.$transaction([
-      prisma.reservacion.deleteMany({ where: { OR: [{ clienteId: id }, { peluqueroId: id }] } }),
-      prisma.usuario.delete({ where: { id } }),
+      // Cancela sus citas futuras para liberar la agenda de los profesionales.
+      prisma.reservacion.updateMany({
+        where: {
+          clienteId: id,
+          estadoCita: "confirmada",
+          fecha: { gte: fechaUTC(fechaISO(ahora)) },
+        },
+        data: {
+          estadoCita: "cancelada",
+          canceladaEn: ahora,
+          canceladaPor: "cliente",
+          motivoCancelacion: "Cuenta eliminada por el usuario",
+        },
+      }),
+      // Sus negocios dejan de ser visibles y de aceptar reservas.
+      prisma.negocio.updateMany({ where: { duenoId: id }, data: { estadoSuscripcion: "vencido" } }),
+      // Sus servicios dejan de ofertarse.
+      prisma.servicio.updateMany({ where: { peluqueroId: id }, data: { activo: false } }),
+      prisma.disponibilidad.deleteMany({ where: { peluqueroId: id } }),
+      // Texto libre de reseñas: contenido personal, se elimina (la nota numérica
+      // se conserva para no falsear la reputación del negocio).
+      prisma.resena.updateMany({ where: { clienteId: id }, data: { comentario: null } }),
+      prisma.refreshToken.deleteMany({ where: { usuarioId: id } }),
+      prisma.passwordResetToken.deleteMany({ where: { usuarioId: id } }),
+      prisma.emailVerificationToken.deleteMany({ where: { usuarioId: id } }),
+      // Datos personales fuera: el email se sustituye por uno irreversible y no
+      // enrutable, de modo que la cuenta no puede reutilizarse ni recibir correo.
+      prisma.usuario.update({
+        where: { id },
+        data: {
+          nombre: "Usuario eliminado",
+          email: `eliminado-${id}-${randomBytes(6).toString("hex")}@cuenta.invalid`,
+          telefono: "",
+          fotoUrl: null,
+          passwordHash: await hashPassword(randomBytes(32).toString("hex")),
+          bloqueado: true,
+        },
+      }),
     ]);
-    res.json({ ok: true, mensaje: "Cuenta y datos asociados eliminados" });
+    await auditar(id, "cuenta_anonimizada", `usuario=${id}`);
+    res.json({
+      ok: true,
+      mensaje:
+        "Cuenta eliminada: tus datos personales se han borrado y tus citas futuras se han cancelado.",
+    });
   }),
 );

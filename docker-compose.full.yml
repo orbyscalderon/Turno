@@ -1,12 +1,28 @@
 # Stack completo de Turno: PostgreSQL + backend + frontend.
-# Uso: docker compose -f docker-compose.full.yml up --build
+#
+# Uso (demo local, pagos simulados):
+#   docker compose -f docker-compose.full.yml up --build
+#   -> frontend en http://localhost:8080
+#
+# Uso REAL (cobros y emails de verdad): crea un fichero `.env` junto a este
+# archivo con tus claves y levanta igual. Las variables de abajo lo leen:
+#   JWT_SECRET=...            (48+ caracteres aleatorios)
+#   PUBLIC_URL=https://tudominio.com
+#   PAYMENT_PROVIDER=stripe
+#   STRIPE_SECRET_KEY=sk_live_...
+#   STRIPE_WEBHOOK_SECRET_PAGOS=whsec_...
+#   STRIPE_WEBHOOK_SECRET_SUSCRIPCION=whsec_...
+#   STRIPE_PRICE_BASICO_MENSUAL=price_...   (y los otros tres)
+#   EMAIL_TRANSPORT=smtp
+#   SMTP_HOST=... SMTP_USER=... SMTP_PASS=...
+#   VITE_STRIPE_PUBLISHABLE_KEY=pk_live_... (se usa al construir el frontend)
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: turno
     volumes:
       - turno_pgdata:/var/lib/postgresql/data
@@ -23,21 +39,50 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/turno?schema=public"
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/turno?schema=public"
+      DIRECT_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/turno?schema=public"
       NODE_ENV: production
       PORT: 4000
-      JWT_SECRET: "cambia-esto-en-produccion-por-un-secreto-largo"
-      FRONTEND_ORIGIN: "http://localhost:8080"
-      APP_URL: "http://localhost:8080"
-      PAYMENT_PROVIDER: mock
-      EMAIL_TRANSPORT: dev
+      JWT_SECRET: "${JWT_SECRET:-demo-secret-solo-para-pruebas-locales-32++}"
+      JWT_EXPIRES_IN: "1h"
+      # Mismo origen que sirve nginx (el frontend proxea /api al backend).
+      FRONTEND_ORIGIN: "${PUBLIC_URL:-http://localhost:8080}"
+      APP_URL: "${PUBLIC_URL:-http://localhost:8080}"
+      TIMEZONE_DEFECTO: "${TIMEZONE_DEFECTO:-Europe/Madrid}"
+      EXIGIR_EMAIL_VERIFICADO: "${EXIGIR_EMAIL_VERIFICADO:-false}"
+      # Pagos: por defecto simulados para que la demo funcione sin claves.
+      PAYMENT_PROVIDER: "${PAYMENT_PROVIDER:-mock}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      STRIPE_WEBHOOK_SECRET_PAGOS: "${STRIPE_WEBHOOK_SECRET_PAGOS:-}"
+      STRIPE_WEBHOOK_SECRET_SUSCRIPCION: "${STRIPE_WEBHOOK_SECRET_SUSCRIPCION:-}"
+      STRIPE_PRICE_BASICO_MENSUAL: "${STRIPE_PRICE_BASICO_MENSUAL:-}"
+      STRIPE_PRICE_BASICO_ANUAL: "${STRIPE_PRICE_BASICO_ANUAL:-}"
+      STRIPE_PRICE_PRO_MENSUAL: "${STRIPE_PRICE_PRO_MENSUAL:-}"
+      STRIPE_PRICE_PRO_ANUAL: "${STRIPE_PRICE_PRO_ANUAL:-}"
+      EMAIL_TRANSPORT: "${EMAIL_TRANSPORT:-dev}"
+      EMAIL_FROM: "${EMAIL_FROM:-Turno <no-reply@turno.app>}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      SENTRY_DSN: "${SENTRY_DSN:-}"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-}"
+      # Con mock/dev en NODE_ENV=production el backend exige esta escotilla
+      # (así nadie despliega sin cobrar y sin enviar emails por descuido).
+      PERMITIR_MODO_DEMO: "${PERMITIR_MODO_DEMO:-true}"
     volumes:
       - turno_uploads:/app/uploads
     expose:
       - "4000"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Mismo dominio: las llamadas van a /api y nginx las reenvía.
+        VITE_API_URL: ""
+        VITE_STRIPE_PUBLISHABLE_KEY: "${VITE_STRIPE_PUBLISHABLE_KEY:-}"
     restart: unless-stopped
     depends_on:
       - backend

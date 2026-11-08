@@ -7,6 +7,9 @@ import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { auditar } from "../lib/audit.js";
 import { revocarTodos } from "../lib/refresh.js";
+import { paginationSchema, paginar, metaPaginacion } from "../lib/pagination.js";
+import { estaVigente } from "../lib/suscripcion.js";
+import { vencerSuscripciones } from "../jobs/vencerSuscripciones.js";
 
 export const superadminRouter = Router();
 
@@ -35,23 +38,32 @@ superadminRouter.get(
   }),
 );
 
-// ---------- Listado de negocios ----------
+// ---------- Listado de negocios (paginado) ----------
 superadminRouter.get(
   "/negocios",
-  asyncHandler(async (_req, res) => {
-    const negocios = await prisma.negocio.findMany({
-      select: {
-        id: true,
-        nombreComercial: true,
-        estadoSuscripcion: true,
-        suscripcionHasta: true,
-        createdAt: true,
-        dueno: { select: { nombre: true, email: true } },
-        _count: { select: { equipo: true } },
-      },
-      orderBy: { createdAt: "desc" },
+  asyncHandler(async (req, res) => {
+    const { page, limit } = paginationSchema.parse(req.query);
+    const [total, negocios] = await Promise.all([
+      prisma.negocio.count(),
+      prisma.negocio.findMany({
+        select: {
+          id: true,
+          nombreComercial: true,
+          plan: true,
+          estadoSuscripcion: true,
+          suscripcionHasta: true,
+          createdAt: true,
+          dueno: { select: { nombre: true, email: true } },
+          _count: { select: { equipo: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        ...paginar(page, limit),
+      }),
+    ]);
+    res.json({
+      negocios: negocios.map((n) => ({ ...n, vigente: estaVigente(n) })),
+      meta: metaPaginacion(total, page, limit),
     });
-    res.json({ negocios });
   }),
 );
 
@@ -75,23 +87,48 @@ superadminRouter.patch(
         ...(data.suscripcionHasta ? { suscripcionHasta: new Date(data.suscripcionHasta) } : {}),
       },
     });
-    await auditar(req.user!.sub, "suscripcion_cambiada", `negocio=${negocio.id} estado=${data.estadoSuscripcion}`);
+    await auditar(
+      req.user!.sub,
+      "suscripcion_cambiada",
+      `negocio=${negocio.id} estado=${data.estadoSuscripcion}`,
+    );
     res.json({ negocio });
   }),
 );
 
-// ---------- Listado de usuarios + baneo ----------
+// ---------- Listado de usuarios + baneo (paginado) ----------
 superadminRouter.get(
   "/usuarios",
   asyncHandler(async (req, res) => {
-    const q = typeof req.query.q === "string" ? req.query.q : undefined;
-    const usuarios = await prisma.usuario.findMany({
-      where: q ? { OR: [{ nombre: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : undefined,
-      select: { id: true, nombre: true, email: true, rol: true, bloqueado: true, emailVerificadoEn: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
-    res.json({ usuarios });
+    const { page, limit } = paginationSchema.parse(req.query);
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
+    const where = q
+      ? {
+          OR: [
+            { nombre: { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
+    const [total, usuarios] = await Promise.all([
+      prisma.usuario.count({ where }),
+      prisma.usuario.findMany({
+        where,
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          rol: true,
+          bloqueado: true,
+          emailVerificadoEn: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        ...paginar(page, limit),
+      }),
+    ]);
+    res.json({ usuarios, meta: metaPaginacion(total, page, limit) });
   }),
 );
 
@@ -106,7 +143,11 @@ superadminRouter.patch(
 
     await prisma.usuario.update({ where: { id }, data: { bloqueado } });
     if (bloqueado) await revocarTodos(id); // corta sesiones activas
-    await auditar(req.user!.sub, bloqueado ? "usuario_baneado" : "usuario_reactivado", `usuario=${id}`);
+    await auditar(
+      req.user!.sub,
+      bloqueado ? "usuario_baneado" : "usuario_reactivado",
+      `usuario=${id}`,
+    );
     res.json({ ok: true, bloqueado });
   }),
 );
@@ -134,11 +175,31 @@ superadminRouter.get(
   }),
 );
 
-// ---------- Log de auditoría ----------
+// ---------- Log de auditoría (paginado) ----------
 superadminRouter.get(
   "/auditoria",
-  asyncHandler(async (_req, res) => {
-    const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
-    res.json({ logs });
+  asyncHandler(async (req, res) => {
+    const { page, limit } = paginationSchema.parse(req.query);
+    const accion = typeof req.query.accion === "string" ? req.query.accion : undefined;
+    const where = accion ? { accion } : {};
+    const [total, logs] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...paginar(page, limit),
+      }),
+    ]);
+    res.json({ logs, meta: metaPaginacion(total, page, limit) });
+  }),
+);
+
+// ---------- Forzar el barrido de suscripciones vencidas (operativa) ----------
+superadminRouter.post(
+  "/vencer-suscripciones",
+  asyncHandler(async (req, res) => {
+    const total = await vencerSuscripciones();
+    await auditar(req.user!.sub, "barrido_suscripciones", `vencidas=${total}`);
+    res.json({ ok: true, vencidas: total });
   }),
 );

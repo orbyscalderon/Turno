@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { BadRequest } from "../lib/errors.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { toMinutes } from "../lib/time.js";
+import { toMinutes, fechaISO, fechaUTC } from "../lib/time.js";
 
 export const disponibilidadRouter = Router();
 
@@ -22,14 +22,16 @@ const bulkSchema = z.object({ rangos: z.array(rangoSchema).max(50) });
 disponibilidadRouter.put(
   "/mia",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const { rangos } = bulkSchema.parse(req.body);
     const peluqueroId = req.user!.sub;
 
     for (const r of rangos) {
       if (toMinutes(r.horaInicio) >= toMinutes(r.horaFin)) {
-        throw BadRequest(`Rango inválido en ${r.dia}: la hora de fin debe ser mayor a la de inicio`);
+        throw BadRequest(
+          `Rango inválido en ${r.dia}: la hora de fin debe ser mayor a la de inicio`,
+        );
       }
     }
 
@@ -48,7 +50,7 @@ disponibilidadRouter.put(
 disponibilidadRouter.get(
   "/mia",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const disponibilidad = await prisma.disponibilidad.findMany({
       where: { peluqueroId: req.user!.sub },
@@ -76,10 +78,10 @@ const bloqueoSchema = z
 disponibilidadRouter.get(
   "/bloqueos",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const bloqueos = await prisma.bloqueo.findMany({
-      where: { peluqueroId: req.user!.sub, fecha: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
+      where: { peluqueroId: req.user!.sub, fecha: { gte: fechaUTC(fechaISO(new Date())) } },
       orderBy: { fecha: "asc" },
     });
     res.json({ bloqueos });
@@ -89,13 +91,13 @@ disponibilidadRouter.get(
 disponibilidadRouter.post(
   "/bloqueos",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const data = bloqueoSchema.parse(req.body);
     const bloqueo = await prisma.bloqueo.create({
       data: {
         peluqueroId: req.user!.sub,
-        fecha: new Date(`${data.fecha}T00:00:00`),
+        fecha: fechaUTC(data.fecha),
         horaInicio: data.horaInicio ?? null,
         horaFin: data.horaFin ?? null,
         motivo: data.motivo ?? null,
@@ -108,11 +110,12 @@ disponibilidadRouter.post(
 disponibilidadRouter.delete(
   "/bloqueos/:id",
   requireAuth,
-  requireRole("peluquero"),
+  requireRole("peluquero", "admin_negocio"),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const b = await prisma.bloqueo.findUnique({ where: { id } });
-    if (!b || b.peluqueroId !== req.user!.sub) return res.status(404).json({ error: "No encontrado" });
+    if (!b || b.peluqueroId !== req.user!.sub)
+      return res.status(404).json({ error: "No encontrado" });
     await prisma.bloqueo.delete({ where: { id } });
     res.status(204).end();
   }),

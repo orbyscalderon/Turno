@@ -47,23 +47,85 @@ export default function App() {
   );
 }
 
+// La API devuelve sesión, o un desafío de segundo factor si la cuenta lo tiene
+// activo. Sin tratar ese caso, la app guardaba un token `undefined` y se quedaba
+// en una sesión rota sin decir nada.
+interface RespuestaLogin {
+  usuario?: { nombre: string; rol: string };
+  token?: string;
+  requiere2fa?: boolean;
+  desafio?: string;
+}
+
 function Login({ onLogin }: { onLogin: (u: { nombre: string; rol: string }) => void }) {
   const [email, setEmail] = useState("cliente@turno.app");
   const [password, setPassword] = useState("password123");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Desafío pendiente de 2FA: mientras exista, se pide el código de 6 dígitos.
+  const [desafio, setDesafio] = useState<string | null>(null);
+  const [codigo, setCodigo] = useState("");
+
+  async function aplicar(r: RespuestaLogin) {
+    if (r.requiere2fa && r.desafio) {
+      setDesafio(r.desafio);
+      return;
+    }
+    if (!r.token || !r.usuario) throw new Error("Respuesta de login inesperada");
+    await setToken(r.token);
+    onLogin(r.usuario);
+  }
 
   async function entrar() {
     setError(""); setLoading(true);
     try {
-      const r = await api.post<{ usuario: { nombre: string; rol: string }; token: string }>("/auth/login", { email, password });
-      await setToken(r.token);
-      onLogin(r.usuario);
+      await aplicar(await api.post<RespuestaLogin>("/auth/login", { email, password }));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Error");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function verificar() {
+    setError(""); setLoading(true);
+    try {
+      await aplicar(
+        await api.post<RespuestaLogin>("/auth/2fa/verificar", { desafio, codigo: codigo.trim() }),
+      );
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Error");
+      setCodigo("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (desafio) {
+    return (
+      <ScrollView contentContainerStyle={s.pad}>
+        <Text style={s.h1}>Verificación en dos pasos</Text>
+        <Text style={s.muted}>
+          Introduce el código de 6 dígitos de tu app de autenticación. También vale uno de
+          tus códigos de recuperación.
+        </Text>
+        <Text style={s.label}>Código</Text>
+        <TextInput
+          style={s.input}
+          autoCapitalize="characters"
+          keyboardType="number-pad"
+          value={codigo}
+          onChangeText={setCodigo}
+        />
+        {error ? <Text style={s.error}>{error}</Text> : null}
+        <TouchableOpacity style={s.primary} onPress={verificar} disabled={loading}>
+          <Text style={s.primaryTxt}>{loading ? "..." : "Verificar"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setDesafio(null); setCodigo(""); setError(""); }}>
+          <Text style={s.link}>Volver</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
   }
 
   return (
@@ -117,11 +179,46 @@ function Reserva() {
   async function reservar(slot: Slot) {
     if (!peluquero || !servicio) return;
     try {
-      const creada = await api.post<{ pago: { transaccionId: string } }>("/reservas", {
+      // 1) Crea la reserva: bloquea el hueco y devuelve los datos de cobro.
+      //    `pago` es null si la reserva se paga con un bono prepagado: entonces
+      //    no hay fianza que cobrar y la cita ya queda confirmada.
+      const creada = await api.post<{
+        reserva: { id: number };
+        pago: { provider: string; clientSecret: string; montoUsd: number } | null;
+        bono?: { id: number; usado: boolean };
+      }>("/reservas", {
         peluqueroId: peluquero.id, servicioId: servicio.id, fecha, horaInicio: slot.inicio,
       });
-      await api.post("/reservas/webhook/pago", { transaccionId: creada.pago.transaccionId, pagado: true });
-      // Recupera la reserva confirmada para obtener el link de WhatsApp.
+
+      if (!creada.pago) {
+        setMsg("¡Reserva confirmada con tu bono! Se ha descontado una sesión.");
+        cargarSlots(servicio, fecha);
+        return;
+      }
+
+      // 2) Cobro de la fianza según la pasarela configurada.
+      //    Antes se llamaba al webhook público con `pagado: true`, que era
+      //    abusable (cualquiera confirmaba su pago gratis) y hoy el backend lo
+      //    rechaza: el pago solo lo sella la pasarela o el endpoint autenticado.
+      if (creada.pago.provider === "mock") {
+        await api.post(`/reservas/${creada.reserva.id}/pagar`, {});
+      } else if (creada.pago.provider === "paypal" && creada.pago.clientSecret) {
+        // PayPal se aprueba en el navegador y se captura al volver.
+        Linking.openURL(creada.pago.clientSecret).catch(() => {});
+        setMsg("Termina el pago en PayPal para confirmar la cita.");
+        return;
+      } else {
+        // Stripe necesita su SDK nativo (@stripe/stripe-react-native) para
+        // capturar la tarjeta dentro de la app. Mientras no esté integrado, el
+        // hueco queda reservado y el pago se completa desde la web.
+        setMsg(
+          `Reserva creada por ${creada.pago.montoUsd.toFixed(2)} USD. ` +
+            "Termina el pago de la fianza desde la web para confirmarla.",
+        );
+        return;
+      }
+
+      // 3) Recupera la reserva confirmada para obtener el link de WhatsApp.
       const mias = await api.get<{ reservas: { whatsappUrl: string | null }[] }>("/reservas/mias");
       const wa = mias.reservas.find((r) => r.whatsappUrl)?.whatsappUrl;
       setMsg("¡Reserva confirmada!");

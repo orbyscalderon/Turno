@@ -7,17 +7,17 @@ validación en el local y recordatorios por email/WhatsApp.
 
 ## Stack
 
-| Capa      | Tecnología                                             |
-|-----------|--------------------------------------------------------|
-| Backend   | Node + TypeScript, Express, Prisma, **PostgreSQL**     |
-| Auth      | JWT + bcrypt, RBAC por rol                             |
-| Validación| Zod                                                    |
-| Frontend  | React + Vite + TypeScript                              |
-| Móvil     | Expo + React Native (scaffold del flujo de cliente, en `mobile/`) |
-| Pagos     | `PaymentProvider`: mock, **Stripe** (Elements + webhooks) y **PayPal** (Orders v2) |
-| Seguridad | helmet, rate-limiting, env validado con Zod, idempotencia de webhooks |
-| Calidad   | ESLint + Prettier, Vitest (63 tests) y Playwright (7 E2E de navegador) |
-| Monitoreo | Logs estructurados (pino) + Sentry opcional (`SENTRY_DSN`) |
+| Capa       | Tecnología                                                                         |
+| ---------- | ---------------------------------------------------------------------------------- |
+| Backend    | Node + TypeScript, Express, Prisma, **PostgreSQL**                                 |
+| Auth       | JWT + bcrypt, RBAC por rol                                                         |
+| Validación | Zod                                                                                |
+| Frontend   | React + Vite + TypeScript                                                          |
+| Móvil      | Expo + React Native (scaffold del flujo de cliente, en `mobile/`)                  |
+| Pagos      | `PaymentProvider`: mock, **Stripe** (Elements + webhooks) y **PayPal** (Orders v2) |
+| Seguridad  | helmet, rate-limiting, env validado con Zod, idempotencia de webhooks              |
+| Calidad    | ESLint + Prettier, Vitest (63 tests) y Playwright (7 E2E de navegador)             |
+| Monitoreo  | Logs estructurados (pino) + Sentry opcional (`SENTRY_DSN`)                         |
 
 Se eligió **PostgreSQL** porque el sistema depende de sus garantías de concurrencia para
 sostener dos invariantes de negocio:
@@ -85,13 +85,13 @@ VITE_STRIPE_PUBLISHABLE_KEY="pk_test_..."
 
 ## Cuentas de prueba (password: `password123`)
 
-| Rol            | Email                                   |
-|----------------|-----------------------------------------|
-| Super Admin    | super@turno.app                         |
-| Dueño negocio  | dueno@turno.app                         |
-| Peluqueros     | peluquero1@turno.app … peluquero5@turno.app (aceptados) |
-| Peluquero      | peluquero6@turno.app (pendiente de aprobación) |
-| Cliente        | cliente@turno.app                       |
+| Rol           | Email                                                   |
+| ------------- | ------------------------------------------------------- |
+| Super Admin   | super@turno.app                                         |
+| Dueño negocio | dueno@turno.app                                         |
+| Peluqueros    | peluquero1@turno.app … peluquero5@turno.app (aceptados) |
+| Peluquero     | peluquero6@turno.app (pendiente de aprobación)          |
+| Cliente       | cliente@turno.app                                       |
 
 Negocio sembrado: **Barbería El Corte Fino** con 5 peluqueros, cada uno con 3 servicios y
 disponibilidad L-V (09-14 y 16-20) + sábado (10-14).
@@ -193,6 +193,7 @@ STRIPE_PRICE_PRO_ANUAL=price_...
 # Y en el frontend (sin esto el cliente no ve el formulario de tarjeta):
 VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ```
+
 Webhooks a registrar: fianza → `POST /api/reservas/webhook/pago`; suscripción →
 `POST /api/suscripcion/webhook`. El detalle de eventos, Billing Portal, Connect e impuestos
 está en [GO-LIVE.md](GO-LIVE.md).

@@ -114,13 +114,15 @@ describe("vigencia de la suscripción", () => {
       },
     });
 
-    const cliente = await request(app).post("/api/auth/registro").send({
-      nombre: "Cliente Sub",
-      telefono: "+34600000034",
-      email: `cliente_sub_${sufijo}@turno.test`,
-      password: "password123",
-      rol: "cliente",
-    });
+    const cliente = await request(app)
+      .post("/api/auth/registro")
+      .send({
+        nombre: "Cliente Sub",
+        telefono: "+34600000034",
+        email: `cliente_sub_${sufijo}@turno.test`,
+        password: "password123",
+        rol: "cliente",
+      });
 
     const manana = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
     const res = await request(app)

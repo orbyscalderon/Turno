@@ -249,7 +249,12 @@ bonosRouter.get(
     const ingresos = bonos.reduce((a, b) => a + Number(b.paquete.precio), 0);
 
     res.json({
-      resumen: { vendidos, sesionesVendidas, sesionesUsadas, ingresos: Number(ingresos.toFixed(2)) },
+      resumen: {
+        vendidos,
+        sesionesVendidas,
+        sesionesUsadas,
+        ingresos: Number(ingresos.toFixed(2)),
+      },
       bonos,
     });
   }),

@@ -62,8 +62,7 @@ export function MisBonos() {
                   opacity: inutil ? 0.55 : 1,
                 }}
               >
-                <b>{b.nombre}</b>{" "}
-                <span className="muted small">· {b.negocio.nombreComercial}</span>
+                <b>{b.nombre}</b> <span className="muted small">· {b.negocio.nombreComercial}</span>
                 <div className="small">
                   {t("bono.remaining", { n: b.restantes, total: b.sesionesTotales })}
                   {b.expiraEn && (
@@ -143,9 +142,9 @@ export function PaquetesNegocio({ negocioId }: { negocioId: string }) {
 
     // Servicios del equipo: un paquete solo puede ser de un servicio propio.
     try {
-      const eq = await api.get<{ miembros: { estadoAprobacion: string; usuario: { id: number } }[] }>(
-        `/negocios/${negocioId}/equipo`,
-      );
+      const eq = await api.get<{
+        miembros: { estadoAprobacion: string; usuario: { id: number } }[];
+      }>(`/negocios/${negocioId}/equipo`);
       const activos = eq.miembros.filter((m) => m.estadoAprobacion === "aceptado");
       const listas = await Promise.all(
         activos.map((m) =>

@@ -24,7 +24,9 @@ export function AccountBar() {
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url; a.download = "mis-datos-turno.json"; a.click();
+        a.href = url;
+        a.download = "mis-datos-turno.json";
+        a.click();
         URL.revokeObjectURL(url);
       });
   }
@@ -43,9 +45,15 @@ export function AccountBar() {
         <div className="card" style={{ borderColor: "var(--amber)", marginBottom: 8 }}>
           <div className="row spread">
             <span className="small">{t("account.verifyWarn")}</span>
-            <button className="ghost small" onClick={reenviar}>{t("account.resend")}</button>
+            <button className="ghost small" onClick={reenviar}>
+              {t("account.resend")}
+            </button>
           </div>
-          {msg && <p className="success small" style={{ margin: "6px 0 0" }}>{msg}</p>}
+          {msg && (
+            <p className="success small" style={{ margin: "6px 0 0" }}>
+              {msg}
+            </p>
+          )}
         </div>
       )}
 
@@ -57,10 +65,16 @@ export function AccountBar() {
       {abrirCuenta && (
         <div className="card" style={{ marginTop: 8 }}>
           <div className="row">
-            <button className="ghost small" onClick={exportar}>{t("account.export")}</button>
-            <button className="ghost small" onClick={refrescarUsuario}>{t("account.refresh")}</button>
+            <button className="ghost small" onClick={exportar}>
+              {t("account.export")}
+            </button>
+            <button className="ghost small" onClick={refrescarUsuario}>
+              {t("account.refresh")}
+            </button>
             {usuario.rol !== "superadmin" && (
-              <button className="ghost small" style={{ color: "var(--danger)" }} onClick={borrar}>{t("account.delete")}</button>
+              <button className="ghost small" style={{ color: "var(--danger)" }} onClick={borrar}>
+                {t("account.delete")}
+              </button>
             )}
           </div>
         </div>

@@ -60,13 +60,7 @@ export async function calcularSlotsLibres(params: {
   const duracion = servicio.duracionMinutos;
 
   const dia = diaSemanaDeFecha(params.fechaISO) as
-    | "lunes"
-    | "martes"
-    | "miercoles"
-    | "jueves"
-    | "viernes"
-    | "sabado"
-    | "domingo";
+    "lunes" | "martes" | "miercoles" | "jueves" | "viernes" | "sabado" | "domingo";
 
   const rangos = await db.disponibilidad.findMany({
     where: { peluqueroId: params.peluqueroId, dia },

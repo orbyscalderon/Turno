@@ -118,7 +118,10 @@ suscripcionRouter.post(
       });
     }
     // Guarda el plan elegido (se confirma como activo al pagar, vía webhook).
-    await prisma.negocio.update({ where: { id: negocioId }, data: { plan, intervaloPlan: intervalo } });
+    await prisma.negocio.update({
+      where: { id: negocioId },
+      data: { plan, intervaloPlan: intervalo },
+    });
 
     const session = await stripeClient.checkout.sessions.create({
       mode: "subscription",
@@ -275,7 +278,11 @@ suscripcionRouter.post(
           ...(subId ? { stripeSubscriptionId: subId } : {}),
         },
       });
-      await auditar(null, "suscripcion_pagada", `customer=${customerId} hasta=${hasta.toISOString()}`);
+      await auditar(
+        null,
+        "suscripcion_pagada",
+        `customer=${customerId} hasta=${hasta.toISOString()}`,
+      );
     } else if (event.type === "customer.subscription.updated") {
       // Sincroniza estado y fin de periodo ante cualquier cambio (plan, impago, cancelación programada).
       const estado = obj.status ?? "";
@@ -297,7 +304,11 @@ suscripcionRouter.post(
         where: { stripeCustomerId: customerId },
         data: { estadoSuscripcion: "vencido" },
       });
-      await auditar(null, "suscripcion_vencida_stripe", `customer=${customerId} evento=${event.type}`);
+      await auditar(
+        null,
+        "suscripcion_vencida_stripe",
+        `customer=${customerId} evento=${event.type}`,
+      );
     }
 
     res.json({ received: true });

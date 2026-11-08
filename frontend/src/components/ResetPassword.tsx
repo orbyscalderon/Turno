@@ -11,7 +11,8 @@ export function ResetPassword({ token }: { token: string }) {
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    setError(""); setMsg("");
+    setError("");
+    setMsg("");
     try {
       await api.post("/auth/password/reset", { token, password });
       setListo(true);
@@ -28,14 +29,25 @@ export function ResetPassword({ token }: { token: string }) {
         {!listo ? (
           <form onSubmit={enviar}>
             <label htmlFor="resetp-reset-prompt">{t("reset.prompt")}</label>
-            <input id="resetp-reset-prompt" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              id="resetp-reset-prompt"
+              type="password"
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             {error && <p className="error">{error}</p>}
-            <button className="primary" style={{ width: "100%", marginTop: 12 }}>{t("common.save")}</button>
+            <button className="primary" style={{ width: "100%", marginTop: 12 }}>
+              {t("common.save")}
+            </button>
           </form>
         ) : (
           <>
             <p className="success">{msg}</p>
-            <a href="/"><button className="primary">{t("reset.goLogin")}</button></a>
+            <a href="/">
+              <button className="primary">{t("reset.goLogin")}</button>
+            </a>
           </>
         )}
       </div>

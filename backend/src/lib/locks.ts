@@ -21,10 +21,7 @@ export async function lockAgenda(
 }
 
 /** Lock por negocio (límites de plantilla, cambios de suscripción...). */
-export async function lockNegocio(
-  tx: Prisma.TransactionClient,
-  negocioId: string,
-): Promise<void> {
+export async function lockNegocio(tx: Prisma.TransactionClient, negocioId: string): Promise<void> {
   const clave = `negocio:${negocioId}`;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${clave}))`;
 }

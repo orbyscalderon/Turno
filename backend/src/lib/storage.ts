@@ -87,7 +87,9 @@ export const storage: Storage = env.storageProvider === "s3" ? new S3Storage() :
  */
 export function borrarAnterior(url: string | null | undefined): void {
   if (!url) return;
-  void storage.borrar(url).catch((err) => logger.warn({ err, url }, "no se pudo borrar la imagen anterior"));
+  void storage
+    .borrar(url)
+    .catch((err) => logger.warn({ err, url }, "no se pudo borrar la imagen anterior"));
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +116,7 @@ export function tipoDeImagenReal(buffer: Buffer): "jpg" | "png" | "webp" | null 
   ) {
     return "png";
   }
-  if (
-    buffer.toString("ascii", 0, 4) === "RIFF" &&
-    buffer.toString("ascii", 8, 12) === "WEBP"
-  ) {
+  if (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") {
     return "webp";
   }
   return null;

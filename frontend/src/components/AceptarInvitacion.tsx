@@ -16,7 +16,8 @@ export function AceptarInvitacion({ token, rol }: { token: string; rol: Rol }) {
   }, [token]);
 
   async function aceptar() {
-    setError(""); setMsg("");
+    setError("");
+    setMsg("");
     try {
       await api.post(`/negocios/invitaciones/${token}/aceptar`);
       setMsg(t("invite.joined"));
@@ -34,11 +35,17 @@ export function AceptarInvitacion({ token, rol }: { token: string; rol: Rol }) {
         {msg && <p className="success">{msg}</p>}
         {negocio && rol === "peluquero" && !msg && (
           <>
-            <p>{t("invite.invited")} <strong>{negocio.nombreComercial}</strong>.</p>
-            <button className="primary" onClick={aceptar}>{t("invite.accept")}</button>
+            <p>
+              {t("invite.invited")} <strong>{negocio.nombreComercial}</strong>.
+            </p>
+            <button className="primary" onClick={aceptar}>
+              {t("invite.accept")}
+            </button>
           </>
         )}
-        <p style={{ marginTop: 16 }}><a href="/">{t("common.back")}</a></p>
+        <p style={{ marginTop: 16 }}>
+          <a href="/">{t("common.back")}</a>
+        </p>
       </div>
     </div>
   );

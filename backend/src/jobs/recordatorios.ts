@@ -67,7 +67,9 @@ export async function enviarRecordatorios(): Promise<number> {
       await enviarEmail({ to: r.cliente.email, subject: tpl.subject, html: tpl.html });
       await prisma.reservacion.update({
         where: { id: r.id },
-        data: tocaCorto ? { recordatorioCortoEn: new Date() } : { recordatorioEnviadoEn: new Date() },
+        data: tocaCorto
+          ? { recordatorioCortoEn: new Date() }
+          : { recordatorioEnviadoEn: new Date() },
       });
       enviados++;
     } catch (e) {

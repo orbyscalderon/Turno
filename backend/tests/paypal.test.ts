@@ -47,7 +47,10 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   llamadas = [];
   respuestas = new Map<string, { status: number; cuerpo: unknown }>([
-    ["/v1/oauth2/token", { status: 200, cuerpo: { access_token: "A21AA-token", expires_in: 32400 } }],
+    [
+      "/v1/oauth2/token",
+      { status: 200, cuerpo: { access_token: "A21AA-token", expires_in: 32400 } },
+    ],
   ]);
 });
 
@@ -59,8 +62,14 @@ describe("PayPal: crear la orden", () => {
         id: "5O190127TN364715T",
         status: "PAYER_ACTION_REQUIRED",
         links: [
-          { href: "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T", rel: "self" },
-          { href: "https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T", rel: "payer-action" },
+          {
+            href: "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T",
+            rel: "self",
+          },
+          {
+            href: "https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T",
+            rel: "payer-action",
+          },
         ],
       },
     });
@@ -229,12 +238,19 @@ describe("PayPal: webhook", () => {
   });
 
   it("un cuerpo que no es JSON no rompe nada", async () => {
-    const res = await new PayPalProvider().verificarWebhook("<html>error</html>", undefined, cabeceras);
+    const res = await new PayPalProvider().verificarWebhook(
+      "<html>error</html>",
+      undefined,
+      cabeceras,
+    );
     expect(res).toBeNull();
   });
 
   it("sin cabeceras no se verifica nada", async () => {
-    const res = await new PayPalProvider().verificarWebhook(JSON.stringify(eventoCaptura), undefined);
+    const res = await new PayPalProvider().verificarWebhook(
+      JSON.stringify(eventoCaptura),
+      undefined,
+    );
     expect(res).toBeNull();
   });
 });

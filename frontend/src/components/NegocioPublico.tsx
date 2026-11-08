@@ -69,7 +69,9 @@ export function NegocioPublico({ slug, onReservar }: { slug: string; onReservar:
         if (!vivo) return;
         setServicios(Object.fromEntries(entradas));
 
-        const res = await api.get<{ resenas: Resena[] }>(`/resenas/negocio/${r.negocio.id}?limit=10`);
+        const res = await api.get<{ resenas: Resena[] }>(
+          `/resenas/negocio/${r.negocio.id}?limit=10`,
+        );
         if (vivo) setResenas(res.resenas);
       } catch {
         if (vivo) setNoExiste(true);
@@ -218,9 +220,7 @@ export function NegocioPublico({ slug, onReservar }: { slug: string; onReservar:
                   {s.nombreServicio} · {formatPrecio(s.precio, s.moneda)} · {s.duracionMinutos}′
                 </span>
               ))}
-              {(servicios[p.id] ?? []).length === 0 && (
-                <span className="small faint">—</span>
-              )}
+              {(servicios[p.id] ?? []).length === 0 && <span className="small faint">—</span>}
             </div>
           </div>
         ))}
@@ -236,9 +236,7 @@ export function NegocioPublico({ slug, onReservar }: { slug: string; onReservar:
               <div className="row" style={{ gap: 8 }}>
                 <Stars valor={r.puntuacion} />
                 <strong className="small">{r.cliente.nombre}</strong>
-                <span className="faint small">
-                  {new Date(r.createdAt).toLocaleDateString()}
-                </span>
+                <span className="faint small">{new Date(r.createdAt).toLocaleDateString()}</span>
               </div>
               {r.comentario && <p className="small">{r.comentario}</p>}
             </div>

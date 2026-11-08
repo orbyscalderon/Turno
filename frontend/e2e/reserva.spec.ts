@@ -7,7 +7,10 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function entrar(page: Page, email: string) {
   await page.goto("/");
-  await page.getByRole("button", { name: /Iniciar sesión|Sign in/i }).first().click();
+  await page
+    .getByRole("button", { name: /Iniciar sesión|Sign in/i })
+    .first()
+    .click();
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill("password123");
   await page.getByRole("button", { name: /^(Entrar|Sign in)$/i }).click();
@@ -20,7 +23,9 @@ test.describe("ficha pública del negocio", () => {
 
     await expect(page.getByRole("heading", { name: /Barbería El Corte Fino/i })).toBeVisible();
     await expect(page.getByText(/Calle Mayor 123/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Reservar en este negocio|Book at this/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Reservar en este negocio|Book at this/i }),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: /^(Reseñas|Reviews)$/ })).toBeVisible();
 
     // El título de la página se adapta (vista previa al compartir el enlace).
@@ -34,9 +39,14 @@ test.describe("ficha pública del negocio", () => {
 
   test("desde el buscador público se llega a la ficha sin recargar", async ({ page }) => {
     await page.goto("/");
-    await page.getByText(/Barbería El Corte Fino/i).first().click();
+    await page
+      .getByText(/Barbería El Corte Fino/i)
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/negocio\/barberia-el-corte-fino/);
-    await expect(page.getByRole("button", { name: /Reservar en este negocio|Book at this/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Reservar en este negocio|Book at this/i }),
+    ).toBeVisible();
   });
 });
 
@@ -47,7 +57,11 @@ test.describe("ciclo completo de la cita", () => {
     await page.getByRole("button", { name: /Reservar cita|Book appointment/i }).click();
 
     // Negocio -> profesional -> servicio (tarjetas .biz-card en cada paso).
-    await page.locator(".biz-card").filter({ hasText: /Barbería El Corte Fino/i }).first().click();
+    await page
+      .locator(".biz-card")
+      .filter({ hasText: /Barbería El Corte Fino/i })
+      .first()
+      .click();
     await expect(page.getByRole("heading", { name: /Barbería El Corte Fino —/i })).toBeVisible();
     await page.locator(".biz-card").first().click();
     await expect(page.getByRole("heading", { name: /—/ })).toBeVisible();

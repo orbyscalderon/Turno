@@ -52,7 +52,8 @@ function generarSlots(
   ocupadas: { inicio: string; fin: string }[],
   granularidad = 15,
 ): string[] {
-  const rI = toMinutes(rango.inicio), rF = toMinutes(rango.fin);
+  const rI = toMinutes(rango.inicio),
+    rF = toMinutes(rango.fin);
   const bloqueos = ocupadas.map((o) => ({ inicio: toMinutes(o.inicio), fin: toMinutes(o.fin) }));
   const out: string[] = [];
   for (let i = rI; i + duracion <= rF; i += granularidad) {
@@ -67,7 +68,9 @@ describe("generación de slots", () => {
     expect(slots).toEqual(["09:00", "09:15", "09:30"]); // 09:30+30=10:00 cabe; 09:45 no
   });
   it("excluye slots que solapan una cita existente", () => {
-    const slots = generarSlots({ inicio: "09:00", fin: "12:00" }, 30, [{ inicio: "10:00", fin: "10:30" }]);
+    const slots = generarSlots({ inicio: "09:00", fin: "12:00" }, 30, [
+      { inicio: "10:00", fin: "10:30" },
+    ]);
     expect(slots).toContain("09:30");
     expect(slots).not.toContain("09:45"); // 10:15 solaparía
     expect(slots).not.toContain("10:00");

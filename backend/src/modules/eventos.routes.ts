@@ -43,7 +43,9 @@ const eventoSchema = z.object({
   ruta: z.string().trim().max(160).optional(),
   // Metadatos acotados: números y textos cortos. Sin esto, cualquiera podría
   // usar el endpoint público como almacenamiento gratuito.
-  meta: z.record(z.string().max(40), z.union([z.string().max(120), z.number(), z.boolean()])).optional(),
+  meta: z
+    .record(z.string().max(40), z.union([z.string().max(120), z.number(), z.boolean()]))
+    .optional(),
 });
 
 const loteSchema = z.object({ eventos: z.array(eventoSchema).min(1).max(20) });
@@ -76,7 +78,9 @@ eventosRouter.get(
   requireAuth,
   requireRole("superadmin"),
   asyncHandler(async (req, res) => {
-    const { dias } = z.object({ dias: z.coerce.number().int().min(1).max(365).default(30) }).parse(req.query);
+    const { dias } = z
+      .object({ dias: z.coerce.number().int().min(1).max(365).default(30) })
+      .parse(req.query);
     const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
 
     // Se cuentan SESIONES distintas, no eventos: diez recargas de la misma
@@ -120,7 +124,11 @@ eventosRouter.get(
       embudo,
       otros: filas
         .filter((f) => !PASOS.includes(f.nombre as (typeof PASOS)[number]))
-        .map((f) => ({ nombre: f.nombre, sesiones: Number(f.sesiones), eventos: Number(f.eventos) })),
+        .map((f) => ({
+          nombre: f.nombre,
+          sesiones: Number(f.sesiones),
+          eventos: Number(f.eventos),
+        })),
     });
   }),
 );

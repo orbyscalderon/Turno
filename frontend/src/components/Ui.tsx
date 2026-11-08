@@ -1,7 +1,17 @@
 import type { ReactNode } from "react";
 
 // Tarjeta de métrica con acento de color y opcional icono.
-export function Stat({ label, value, icon, variant }: { label: string; value: ReactNode; icon?: string; variant?: "accent" | "green" }) {
+export function Stat({
+  label,
+  value,
+  icon,
+  variant,
+}: {
+  label: string;
+  value: ReactNode;
+  icon?: string;
+  variant?: "accent" | "green";
+}) {
   return (
     <div className={`stat ${variant ?? ""}`}>
       {icon && <span className="stat-icon">{icon}</span>}

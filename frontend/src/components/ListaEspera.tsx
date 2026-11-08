@@ -75,11 +75,21 @@ export function ApuntarseEspera({
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
             <label htmlFor="esp-desde">{t("wait.from")}</label>
-            <input id="esp-desde" type="time" value={desde} onChange={(e) => setDesde(e.target.value)} />
+            <input
+              id="esp-desde"
+              type="time"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+            />
           </div>
           <div>
             <label htmlFor="esp-hasta">{t("wait.to")}</label>
-            <input id="esp-hasta" type="time" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+            <input
+              id="esp-hasta"
+              type="time"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+            />
           </div>
           <span className="small muted">{t("wait.anyTime")}</span>
         </div>
@@ -178,7 +188,11 @@ export function MisEsperas() {
 export function ColaEspera({ peluqueroId, fecha }: { peluqueroId: number; fecha: string }) {
   const { t } = useT();
   const [cola, setCola] = useState<
-    { id: number; cliente: { nombre: string; telefono: string }; servicio: { nombreServicio: string } }[]
+    {
+      id: number;
+      cliente: { nombre: string; telefono: string };
+      servicio: { nombreServicio: string };
+    }[]
   >([]);
 
   useEffect(() => {

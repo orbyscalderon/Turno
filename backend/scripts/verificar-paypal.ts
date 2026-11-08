@@ -52,7 +52,10 @@ async function main() {
   const auth = Buffer.from(`${env.paypalClientId}:${env.paypalSecret}`).toString("base64");
   const oauth = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
     method: "POST",
-    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     body: "grant_type=client_credentials",
   });
   const { access_token: token } = (await oauth.json()) as { access_token: string };
@@ -61,7 +64,9 @@ async function main() {
     { headers: { Authorization: `Bearer ${token}` } },
   );
   const orden = (await res.json()) as { status?: string };
-  console.log(`   ${res.ok ? "✅" : "❌"} GET orden -> ${res.status} (estado: ${orden.status ?? "?"})`);
+  console.log(
+    `   ${res.ok ? "✅" : "❌"} GET orden -> ${res.status} (estado: ${orden.status ?? "?"})`,
+  );
 
   console.log("\n3/3 Webhook");
   if (!env.paypalWebhookId) {

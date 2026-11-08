@@ -137,7 +137,10 @@ class StripeProvider implements PaymentProvider {
       const pi = event.data.object as Stripe.PaymentIntent;
       return { transaccionId: pi.id, pagado: true, eventoId: event.id, tipo: event.type };
     }
-    if (event.type === "payment_intent.payment_failed" || event.type === "payment_intent.canceled") {
+    if (
+      event.type === "payment_intent.payment_failed" ||
+      event.type === "payment_intent.canceled"
+    ) {
       const pi = event.data.object as Stripe.PaymentIntent;
       return { transaccionId: pi.id, pagado: false, eventoId: event.id, tipo: event.type };
     }
@@ -146,7 +149,10 @@ class StripeProvider implements PaymentProvider {
 
   async reembolsar(transaccionId: string): Promise<Reembolso> {
     const refund = await this.stripe.refunds.create({ payment_intent: transaccionId });
-    return { reembolsoId: refund.id, ok: refund.status === "succeeded" || refund.status === "pending" };
+    return {
+      reembolsoId: refund.id,
+      ok: refund.status === "succeeded" || refund.status === "pending",
+    };
   }
 }
 
@@ -244,10 +250,10 @@ export class PayPalProvider implements PaymentProvider {
 
   /** Captura la orden aprobada por el cliente. */
   async capturar(transaccionId: string): Promise<{ pagado: boolean }> {
-    const res = await this.api<{ status: string }>(
-      `/v2/checkout/orders/${transaccionId}/capture`,
-      { method: "POST", body: "{}" },
-    );
+    const res = await this.api<{ status: string }>(`/v2/checkout/orders/${transaccionId}/capture`, {
+      method: "POST",
+      body: "{}",
+    });
     return { pagado: res.status === "COMPLETED" };
   }
 
@@ -293,7 +299,8 @@ export class PayPalProvider implements PaymentProvider {
     }
 
     // El id de la orden es el que guardamos como idTransaccionPasarela.
-    const ordenId = evento.resource?.supplementary_data?.related_ids?.order_id ?? evento.resource?.id;
+    const ordenId =
+      evento.resource?.supplementary_data?.related_ids?.order_id ?? evento.resource?.id;
     if (!ordenId) return null;
 
     const exito = evento.event_type === "PAYMENT.CAPTURE.COMPLETED";

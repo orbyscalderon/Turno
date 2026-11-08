@@ -96,13 +96,17 @@ describe("TOTP: el flujo completo de la cuenta", () => {
   });
 
   it("empieza desactivado", async () => {
-    const res = await request(app).get("/api/auth/2fa/estado").set("Authorization", `Bearer ${token}`);
+    const res = await request(app)
+      .get("/api/auth/2fa/estado")
+      .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.activo).toBe(false);
   });
 
   it("iniciar devuelve secreto, URI otpauth y QR", async () => {
-    const res = await request(app).post("/api/auth/2fa/iniciar").set("Authorization", `Bearer ${token}`);
+    const res = await request(app)
+      .post("/api/auth/2fa/iniciar")
+      .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.secreto).toMatch(/^[A-Z2-7]{32}$/);
     expect(res.body.uri).toContain("otpauth://totp/");

@@ -40,7 +40,14 @@ async function emitirSesion(usuario: { id: number; rol: Rol; email: string }) {
 // recibe `debeActivar2fa`: puede entrar (si no, no podría ni configurarlo),
 // pero el panel de superadmin le queda cerrado hasta que lo active.
 function respuestaSesion(
-  usuario: { id: number; nombre: string; email: string; rol: Rol; emailVerificadoEn: Date | null; totpActivadoEn?: Date | null },
+  usuario: {
+    id: number;
+    nombre: string;
+    email: string;
+    rol: Rol;
+    emailVerificadoEn: Date | null;
+    totpActivadoEn?: Date | null;
+  },
   sesion: { token: string; refreshToken: string },
 ) {
   return {
@@ -177,7 +184,10 @@ authRouter.post(
     const cliente = new OAuth2Client(env.googleClientId);
     let payload: TokenPayload | undefined;
     try {
-      const ticket = await cliente.verifyIdToken({ idToken: credential, audience: env.googleClientId });
+      const ticket = await cliente.verifyIdToken({
+        idToken: credential,
+        audience: env.googleClientId,
+      });
       payload = ticket.getPayload();
     } catch {
       throw Unauthorized("No se pudo verificar el token de Google");
@@ -259,7 +269,10 @@ authRouter.post(
       throw BadRequest("Enlace de verificación inválido o expirado", "TOKEN_INVALIDO");
     }
     await prisma.$transaction([
-      prisma.usuario.update({ where: { id: registro.usuarioId }, data: { emailVerificadoEn: new Date() } }),
+      prisma.usuario.update({
+        where: { id: registro.usuarioId },
+        data: { emailVerificadoEn: new Date() },
+      }),
       prisma.emailVerificationToken.update({ where: { id: registro.id }, data: { usado: true } }),
     ]);
     res.json({ ok: true, mensaje: "Email verificado" });
@@ -273,7 +286,8 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user!.sub } });
     if (!usuario) throw Unauthorized();
-    if (usuario.emailVerificadoEn) return res.json({ ok: true, mensaje: "El email ya está verificado" });
+    if (usuario.emailVerificadoEn)
+      return res.json({ ok: true, mensaje: "El email ya está verificado" });
     await crearYEnviarVerificacion(usuario.id, usuario.nombre, usuario.email);
     res.json({ ok: true, mensaje: "Email de verificación reenviado" });
   }),
@@ -287,8 +301,14 @@ authRouter.get(
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user!.sub },
       select: {
-        id: true, nombre: true, email: true, telefono: true, rol: true, fotoUrl: true,
-        emailVerificadoEn: true, createdAt: true,
+        id: true,
+        nombre: true,
+        email: true,
+        telefono: true,
+        rol: true,
+        fotoUrl: true,
+        emailVerificadoEn: true,
+        createdAt: true,
       },
     });
     res.json({ usuario });
@@ -364,7 +384,15 @@ authRouter.get(
     const [usuario, reservas, servicios, negocios, resenas] = await Promise.all([
       prisma.usuario.findUnique({
         where: { id },
-        select: { id: true, nombre: true, email: true, telefono: true, rol: true, createdAt: true, emailVerificadoEn: true },
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          telefono: true,
+          rol: true,
+          createdAt: true,
+          emailVerificadoEn: true,
+        },
       }),
       prisma.reservacion.findMany({ where: { OR: [{ clienteId: id }, { peluqueroId: id }] } }),
       prisma.servicio.findMany({ where: { peluqueroId: id } }),
@@ -372,7 +400,14 @@ authRouter.get(
       prisma.resena.findMany({ where: { clienteId: id } }),
     ]);
     res.setHeader("Content-Disposition", 'attachment; filename="mis-datos-turno.json"');
-    res.json({ exportadoEn: new Date().toISOString(), usuario, reservas, servicios, negocios, resenas });
+    res.json({
+      exportadoEn: new Date().toISOString(),
+      usuario,
+      reservas,
+      servicios,
+      negocios,
+      resenas,
+    });
   }),
 );
 
@@ -395,7 +430,11 @@ authRouter.delete(
     await prisma.$transaction([
       // Cancela sus citas futuras para liberar la agenda de los profesionales.
       prisma.reservacion.updateMany({
-        where: { clienteId: id, estadoCita: "confirmada", fecha: { gte: fechaUTC(fechaISO(ahora)) } },
+        where: {
+          clienteId: id,
+          estadoCita: "confirmada",
+          fecha: { gte: fechaUTC(fechaISO(ahora)) },
+        },
         data: {
           estadoCita: "cancelada",
           canceladaEn: ahora,

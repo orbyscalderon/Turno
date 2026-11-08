@@ -87,7 +87,11 @@ superadminRouter.patch(
         ...(data.suscripcionHasta ? { suscripcionHasta: new Date(data.suscripcionHasta) } : {}),
       },
     });
-    await auditar(req.user!.sub, "suscripcion_cambiada", `negocio=${negocio.id} estado=${data.estadoSuscripcion}`);
+    await auditar(
+      req.user!.sub,
+      "suscripcion_cambiada",
+      `negocio=${negocio.id} estado=${data.estadoSuscripcion}`,
+    );
     res.json({ negocio });
   }),
 );
@@ -139,7 +143,11 @@ superadminRouter.patch(
 
     await prisma.usuario.update({ where: { id }, data: { bloqueado } });
     if (bloqueado) await revocarTodos(id); // corta sesiones activas
-    await auditar(req.user!.sub, bloqueado ? "usuario_baneado" : "usuario_reactivado", `usuario=${id}`);
+    await auditar(
+      req.user!.sub,
+      bloqueado ? "usuario_baneado" : "usuario_reactivado",
+      `usuario=${id}`,
+    );
     res.json({ ok: true, bloqueado });
   }),
 );

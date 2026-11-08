@@ -6,7 +6,7 @@ infraestructura**: eso es lo que cubre esta guía.
 > **El backend se niega a arrancar** en `NODE_ENV=production` si la configuración haría que
 > el producto funcionara mal en silencio: `JWT_SECRET` débil, `FRONTEND_ORIGIN`/`APP_URL` sin
 > `https://`, pagos simulados (no cobrarías nada) o emails a consola (nadie recibiría la
-> verificación ni los recordatorios). Para un *staging* puedes relajar los dos últimos con
+> verificación ni los recordatorios). Para un _staging_ puedes relajar los dos últimos con
 > `PERMITIR_MODO_DEMO=true`.
 
 ---
@@ -73,25 +73,25 @@ arrancar (es idempotente). O a mano: `npm run bootstrap:admin`.
 1. Crea la cuenta en https://stripe.com y activa el modo **live**.
 2. **Claves** → API keys:
    - `sk_live_...` → backend `STRIPE_SECRET_KEY`
-   - `pk_live_...` → frontend `VITE_STRIPE_PUBLISHABLE_KEY` *(sin esta el cliente no puede
-     pagar: el formulario de tarjeta avisa de que falta la configuración)*
+   - `pk_live_...` → frontend `VITE_STRIPE_PUBLISHABLE_KEY` _(sin esta el cliente no puede
+     pagar: el formulario de tarjeta avisa de que falta la configuración)_
 3. **Productos recurrentes** (Products → Add product), uno por plan e intervalo, y copia los
    cuatro `price_...`:
 
-   | Plan | Intervalo | Precio | Variable |
-   |---|---|---|---|
-   | Básico | mensual | 25 USD | `STRIPE_PRICE_BASICO_MENSUAL` |
-   | Básico | anual | 250 USD | `STRIPE_PRICE_BASICO_ANUAL` |
-   | Pro | mensual | 50 USD | `STRIPE_PRICE_PRO_MENSUAL` |
-   | Pro | anual | 500 USD | `STRIPE_PRICE_PRO_ANUAL` |
+   | Plan   | Intervalo | Precio  | Variable                      |
+   | ------ | --------- | ------- | ----------------------------- |
+   | Básico | mensual   | 25 USD  | `STRIPE_PRICE_BASICO_MENSUAL` |
+   | Básico | anual     | 250 USD | `STRIPE_PRICE_BASICO_ANUAL`   |
+   | Pro    | mensual   | 50 USD  | `STRIPE_PRICE_PRO_MENSUAL`    |
+   | Pro    | anual     | 500 USD | `STRIPE_PRICE_PRO_ANUAL`      |
 
 4. **Webhooks** (Developers → Webhooks → Add endpoint). Son **dos endpoints** y Stripe genera
    un `whsec_` **distinto para cada uno**:
 
-   | Endpoint | Eventos | Variable del secreto |
-   |---|---|---|
-   | `https://TU_API/api/reservas/webhook/pago` | `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled` | `STRIPE_WEBHOOK_SECRET_PAGOS` |
-   | `https://TU_API/api/suscripcion/webhook` | `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted` | `STRIPE_WEBHOOK_SECRET_SUSCRIPCION` |
+   | Endpoint                                   | Eventos                                                                                                    | Variable del secreto                |
+   | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+   | `https://TU_API/api/reservas/webhook/pago` | `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`                     | `STRIPE_WEBHOOK_SECRET_PAGOS`       |
+   | `https://TU_API/api/suscripcion/webhook`   | `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted` | `STRIPE_WEBHOOK_SECRET_SUSCRIPCION` |
 
 5. **Impuestos** (Settings → Tax): si vendes en la UE o en cualquier
    jurisdicción con IVA, actívalo y pon `STRIPE_TAX_ACTIVO=true`. El checkout
@@ -102,7 +102,7 @@ arrancar (es idempotente). O a mano: `npm run bootstrap:admin`.
    negocio cambiar de plan, actualizar la tarjeta, descargar facturas y cancelar desde su
    propio panel.
 7. **Connect** (opcional, para repartir la fianza con cada negocio): activa Connect con
-   cuentas **Express**. El dueño lo conecta desde su panel (*Cobros*) y la plataforma retiene
+   cuentas **Express**. El dueño lo conecta desde su panel (_Cobros_) y la plataforma retiene
    su comisión como `application_fee`.
 8. `PAYMENT_PROVIDER=stripe`.
 
@@ -124,7 +124,7 @@ stripe listen --forward-to localhost:4000/api/suscripcion/webhook
 
 La lógica está cubierta por pruebas contra la API de PayPal **simulada** (crear orden,
 capturar, reembolsar y verificar la firma del webhook, con sus casos de error:
-`backend/tests/paypal.test.ts`). Lo que esas pruebas no pueden comprobar es que *tus*
+`backend/tests/paypal.test.ts`). Lo que esas pruebas no pueden comprobar es que _tus_
 credenciales valen y que tu app tiene los permisos. Para eso, con las claves de sandbox:
 
 ```bash
@@ -136,7 +136,7 @@ Crea una orden real de sandbox (no cobra nada), imprime el enlace de aprobación
 falta el webhook. Ábrelo, paga con una cuenta de comprador de sandbox y comprueba que la
 reserva queda confirmada: eso cierra el circuito.
 
-PayPal no tiene equivalente al *destination charge* de Stripe Connect, así que el reparto
+PayPal no tiene equivalente al _destination charge_ de Stripe Connect, así que el reparto
 automático con el negocio solo funciona con Stripe.
 
 ---

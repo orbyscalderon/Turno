@@ -27,7 +27,9 @@ resenasRouter.post(
 
     const reserva = await prisma.reservacion.findUnique({
       where: { id: data.reservacionId },
-      include: { peluquero: { include: { membresias: { where: { estadoAprobacion: "aceptado" } } } } },
+      include: {
+        peluquero: { include: { membresias: { where: { estadoAprobacion: "aceptado" } } } },
+      },
     });
     if (!reserva) throw NotFound("Reserva no encontrada");
     if (reserva.clienteId !== clienteId) throw Forbidden("No es tu reserva");

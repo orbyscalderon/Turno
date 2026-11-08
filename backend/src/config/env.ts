@@ -30,7 +30,9 @@ const schema = z.object({
   STRIPE_FEE_PCT: z.coerce.number().default(2.9),
   STRIPE_FEE_FIJO: z.coerce.number().default(0.3),
   // Quién asume la comisión de Stripe: negocio | plataforma | compartido (50/50) | cliente (encima de la fianza).
-  FEE_STRIPE_REPARTO: z.enum(["negocio", "plataforma", "compartido", "cliente"]).default("compartido"),
+  FEE_STRIPE_REPARTO: z
+    .enum(["negocio", "plataforma", "compartido", "cliente"])
+    .default("compartido"),
   // Minutos que se mantiene bloqueado el slot esperando el pago antes de liberarlo.
   RESERVA_HOLD_MINUTOS: z.coerce.number().default(15),
   PAYMENT_PROVIDER: z.enum(["mock", "stripe", "paypal"]).default("mock"),
@@ -51,12 +53,12 @@ const schema = z.object({
   UPLOAD_DIR: z.string().default("uploads"),
   // Almacenamiento de imágenes: local (disco) | s3 (Backblaze B2 / Cloudflare R2, compatible S3)
   STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
-  S3_ENDPOINT: z.string().default(""),      // p. ej. https://s3.us-west-004.backblazeb2.com
+  S3_ENDPOINT: z.string().default(""), // p. ej. https://s3.us-west-004.backblazeb2.com
   S3_REGION: z.string().default("us-east-1"),
   S3_BUCKET: z.string().default(""),
   S3_ACCESS_KEY_ID: z.string().default(""),
   S3_SECRET_ACCESS_KEY: z.string().default(""),
-  S3_PUBLIC_URL: z.string().default(""),    // base pública/CDN, p. ej. https://cdn.tudominio.com
+  S3_PUBLIC_URL: z.string().default(""), // base pública/CDN, p. ej. https://cdn.tudominio.com
   // Email: dev (loguea en consola) | smtp (envía de verdad con SMTP_*)
   EMAIL_TRANSPORT: z.enum(["dev", "smtp"]).default("dev"),
   EMAIL_FROM: z.string().default("Turno <no-reply@turno.app>"),
@@ -78,7 +80,7 @@ const schema = z.object({
   WHATSAPP_PROVIDER: z.enum(["deeplink", "cloud"]).default("deeplink"),
   WHATSAPP_TOKEN: z.string().default(""),
   WHATSAPP_PHONE_ID: z.string().default(""),
-  WHATSAPP_TEMPLATE: z.string().default(""),   // nombre de la plantilla aprobada en Meta
+  WHATSAPP_TEMPLATE: z.string().default(""), // nombre de la plantilla aprobada en Meta
   WHATSAPP_LANG: z.string().default("es"),
   // Empresa operadora (para pies de email). CAMBIAR por los datos reales.
   COMPANY_NAME: z.string().default("OC HOLDING GROUP LLC"),

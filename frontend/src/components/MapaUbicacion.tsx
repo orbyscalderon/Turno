@@ -45,7 +45,10 @@ export function MapaUbicacion({ lat, lng, onChange }: Props) {
     if (!contRef.current || mapRef.current) return;
     const tienePunto = lat != null && lng != null;
     const inicio: [number, number] = tienePunto ? [lat!, lng!] : [20, 0]; // vista mundial neutral
-    const map = L.map(contRef.current, { scrollWheelZoom: false }).setView(inicio, tienePunto ? 15 : 2);
+    const map = L.map(contRef.current, { scrollWheelZoom: false }).setView(
+      inicio,
+      tienePunto ? 15 : 2,
+    );
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
       maxZoom: 19,
@@ -60,13 +63,20 @@ export function MapaUbicacion({ lat, lng, onChange }: Props) {
     // El contenedor puede montarse con tamaño 0 (dentro de tarjetas); recalcula tras un tick.
     setTimeout(() => map.invalidateSize(), 100);
 
-    return () => { map.remove(); mapRef.current = null; markerRef.current = null; };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function crearMarker(map: L.Map, la: number, ln: number) {
     const m = L.marker([la, ln], { draggable: true, icon: icono }).addTo(map);
-    m.on("dragend", () => { const p = m.getLatLng(); cbRef.current(p.lat, p.lng); });
+    m.on("dragend", () => {
+      const p = m.getLatLng();
+      cbRef.current(p.lat, p.lng);
+    });
     markerRef.current = m;
   }
 
@@ -90,12 +100,16 @@ export function MapaUbicacion({ lat, lng, onChange }: Props) {
   async function geocodificar() {
     const q = buscar.trim();
     if (!q) return;
-    setBuscando(true); setAviso("");
+    setBuscando(true);
+    setAviso("");
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       const data: { lat: string; lon: string }[] = await res.json();
-      if (!data.length) { setAviso(t("map.notFound")); return; }
+      if (!data.length) {
+        setAviso(t("map.notFound"));
+        return;
+      }
       ponerPin(Number(data[0].lat), Number(data[0].lon), true);
     } catch {
       setAviso(t("map.searchError"));
@@ -111,18 +125,35 @@ export function MapaUbicacion({ lat, lng, onChange }: Props) {
           placeholder={t("map.searchPlaceholder")}
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); geocodificar(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              geocodificar();
+            }
+          }}
           style={{ flex: 1 }}
         />
         <button type="button" className="ghost" onClick={geocodificar} disabled={buscando}>
           {buscando ? t("map.searching") : `🔎 ${t("map.search")}`}
         </button>
       </div>
-      <p className="muted small" style={{ margin: "6px 0" }}>{t("map.help")}</p>
+      <p className="muted small" style={{ margin: "6px 0" }}>
+        {t("map.help")}
+      </p>
       {aviso && <p className="error small">{aviso}</p>}
-      <div ref={contRef} style={{ height: 280, borderRadius: 12, overflow: "hidden", border: "1px solid var(--border)" }} />
+      <div
+        ref={contRef}
+        style={{
+          height: 280,
+          borderRadius: 12,
+          overflow: "hidden",
+          border: "1px solid var(--border)",
+        }}
+      />
       {lat != null && lng != null && (
-        <p className="muted small" style={{ marginTop: 6 }}>📍 {lat.toFixed(5)}, {lng.toFixed(5)}</p>
+        <p className="muted small" style={{ marginTop: 6 }}>
+          📍 {lat.toFixed(5)}, {lng.toFixed(5)}
+        </p>
       )}
     </div>
   );

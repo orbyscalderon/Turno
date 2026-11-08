@@ -93,7 +93,11 @@ describe("Link", () => {
 
   it("ejecuta el onClick propio además de navegar", () => {
     const alPulsar = vi.fn();
-    render(<Link href="/x" onClick={alPulsar}>X</Link>);
+    render(
+      <Link href="/x" onClick={alPulsar}>
+        X
+      </Link>,
+    );
     act(() => screen.getByRole("link", { name: "X" }).click());
     expect(alPulsar).toHaveBeenCalledOnce();
   });

@@ -137,7 +137,12 @@ export function cifrarSecreto(secreto: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", clave(), iv);
   const ct = Buffer.concat([cipher.update(secreto, "utf8"), cipher.final()]);
-  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), ct.toString("base64url")].join(".");
+  return [
+    "v1",
+    iv.toString("base64url"),
+    cipher.getAuthTag().toString("base64url"),
+    ct.toString("base64url"),
+  ].join(".");
 }
 
 /** Devuelve null si el blob no se puede descifrar (clave rotada o dato corrupto). */
@@ -147,7 +152,10 @@ export function descifrarSecreto(blob: string): string | null {
     if (version !== "v1" || !ivB64 || !tagB64 || !ctB64) return null;
     const decipher = createDecipheriv("aes-256-gcm", clave(), Buffer.from(ivB64, "base64url"));
     decipher.setAuthTag(Buffer.from(tagB64, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(ctB64, "base64url")), decipher.final()]).toString("utf8");
+    return Buffer.concat([
+      decipher.update(Buffer.from(ctB64, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
   } catch {
     return null;
   }

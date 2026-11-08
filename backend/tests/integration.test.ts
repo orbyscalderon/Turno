@@ -58,13 +58,17 @@ describe("auth flow (integración)", () => {
   it("borra la cuenta (GDPR) y luego el login falla", async () => {
     const del = await request(app).delete("/api/auth/me").set("Authorization", `Bearer ${token}`);
     expect(del.status).toBe(200);
-    const login = await request(app).post("/api/auth/login").send({ email, password: "password123" });
+    const login = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password: "password123" });
     expect(login.status).toBe(401);
   });
 });
 
 describe("negocios (integración)", () => {
-  afterAll(async () => { await prisma.$disconnect(); });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
 
   it("filtra por categoría", async () => {
     const res = await request(app).get("/api/negocios?categoria=estetica");

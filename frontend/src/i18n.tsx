@@ -5,19 +5,34 @@ export type Lang = "es" | "en";
 // Diccionario de traducciones. Clave -> { es, en }.
 const dict = {
   // Genéricos / navegación
-  "brand.tagline": { es: "Reservas para barberías, estética, spa, uñas y cualquier negocio de servicios con cita.", en: "Bookings for barbershops, salons, spas, nails and any appointment-based business." },
+  "brand.tagline": {
+    es: "Reservas para barberías, estética, spa, uñas y cualquier negocio de servicios con cita.",
+    en: "Bookings for barbershops, salons, spas, nails and any appointment-based business.",
+  },
   "nav.logout": { es: "Salir", en: "Log out" },
   "nav.viewAsClient": { es: "Ver como cliente", en: "View as client" },
   "nav.backToPanel": { es: "← Volver al panel", en: "← Back to panel" },
   "nav.modePanel": { es: "Panel", en: "Panel" },
   "nav.modeBusiness": { es: "Mi negocio", en: "My business" },
   "nav.modeClient": { es: "Cliente", en: "Client" },
-  "map.searchPlaceholder": { es: "Busca una dirección o lugar…", en: "Search an address or place…" },
+  "map.searchPlaceholder": {
+    es: "Busca una dirección o lugar…",
+    en: "Search an address or place…",
+  },
   "map.search": { es: "Buscar", en: "Search" },
   "map.searching": { es: "Buscando…", en: "Searching…" },
-  "map.help": { es: "Haz clic en el mapa o arrastra el pin para fijar la ubicación exacta.", en: "Click the map or drag the pin to set the exact location." },
-  "map.notFound": { es: "No se encontró esa dirección. Prueba con otra o coloca el pin a mano.", en: "Address not found. Try another or place the pin manually." },
-  "map.searchError": { es: "No se pudo buscar. Coloca el pin en el mapa.", en: "Search failed. Place the pin on the map." },
+  "map.help": {
+    es: "Haz clic en el mapa o arrastra el pin para fijar la ubicación exacta.",
+    en: "Click the map or drag the pin to set the exact location.",
+  },
+  "map.notFound": {
+    es: "No se encontró esa dirección. Prueba con otra o coloca el pin a mano.",
+    en: "Address not found. Try another or place the pin manually.",
+  },
+  "map.searchError": {
+    es: "No se pudo buscar. Coloca el pin en el mapa.",
+    en: "Search failed. Place the pin on the map.",
+  },
   "plan.businessesLabel": { es: "negocio(s)", en: "business(es)" },
   "plan.upTo": { es: "Hasta", en: "Up to" },
   "plan.prosLabel": { es: "profesionales por negocio", en: "professionals per business" },
@@ -46,7 +61,10 @@ const dict = {
   "login.phone": { es: "Teléfono", en: "Phone" },
   "login.registerAs": { es: "Quiero registrarme como", en: "I want to register as" },
   "login.optClient": { es: "Cliente", en: "Client" },
-  "login.optPro": { es: "Profesional (barbero, estilista, esteticista...)", en: "Professional (barber, stylist, esthetician...)" },
+  "login.optPro": {
+    es: "Profesional (barbero, estilista, esteticista...)",
+    en: "Professional (barber, stylist, esthetician...)",
+  },
   "login.optOwner": { es: "Dueño de negocio", en: "Business owner" },
   "login.email": { es: "Email", en: "Email" },
   "login.password": { es: "Contraseña", en: "Password" },
@@ -61,17 +79,29 @@ const dict = {
   "login.demoAccounts": { es: "Cuentas de prueba", en: "Demo accounts" },
 
   // Cuenta / verificación / GDPR
-  "account.verifyWarn": { es: "⚠️ Verifica tu email para asegurar tu cuenta.", en: "⚠️ Verify your email to secure your account." },
+  "account.verifyWarn": {
+    es: "⚠️ Verifica tu email para asegurar tu cuenta.",
+    en: "⚠️ Verify your email to secure your account.",
+  },
   "account.resend": { es: "Reenviar email", en: "Resend email" },
   "account.my": { es: "Mi cuenta", en: "My account" },
   "account.export": { es: "Exportar mis datos (GDPR)", en: "Export my data (GDPR)" },
   "account.refresh": { es: "Actualizar estado", en: "Refresh status" },
   "account.delete": { es: "Eliminar mi cuenta", en: "Delete my account" },
-  "account.deleteConfirm": { es: "¿Eliminar tu cuenta y todos tus datos? Esta acción es irreversible.", en: "Delete your account and all your data? This action is irreversible." },
+  "account.deleteConfirm": {
+    es: "¿Eliminar tu cuenta y todos tus datos? Esta acción es irreversible.",
+    en: "Delete your account and all your data? This action is irreversible.",
+  },
 
   // Marketplace (portada del cliente)
-  "mkt.heroTitle": { es: "Reserva belleza y bienestar cerca de ti", en: "Book beauty & wellness near you" },
-  "mkt.heroSub": { es: "Barberías, peluquerías, estética, uñas, spa y más. Elige, paga la fianza y listo.", en: "Barbershops, salons, spa, nails and more. Pick, pay the deposit and you're set." },
+  "mkt.heroTitle": {
+    es: "Reserva belleza y bienestar cerca de ti",
+    en: "Book beauty & wellness near you",
+  },
+  "mkt.heroSub": {
+    es: "Barberías, peluquerías, estética, uñas, spa y más. Elige, paga la fianza y listo.",
+    en: "Barbershops, salons, spa, nails and more. Pick, pay the deposit and you're set.",
+  },
   "mkt.search": { es: "Buscar", en: "Search" },
   "mkt.all": { es: "Todos", en: "All" },
   "mkt.useLocation": { es: "Cerca de ti", en: "Near you" },
@@ -84,12 +114,21 @@ const dict = {
   "pub.bookCta": { es: "Inicia sesión para reservar", en: "Sign in to book" },
   "pub.services": { es: "Servicios", en: "Services" },
   "pub.team": { es: "Profesionales", en: "Team" },
-  "pub.explore": { es: "Explora los mejores sitios cerca de ti", en: "Explore the best places near you" },
+  "pub.explore": {
+    es: "Explora los mejores sitios cerca de ti",
+    en: "Explore the best places near you",
+  },
   "pub.reviews": { es: "Reseñas", en: "Reviews" },
   "pub.pricing": { es: "Precios", en: "Pricing" },
   "pub.forBusinesses": { es: "Para negocios", en: "For businesses" },
-  "pub.pricingTitle": { es: "Haz crecer tu negocio con Turno", en: "Grow your business with Turno" },
-  "pub.pricingSub": { es: "Recibe reservas online, cobra la fianza y llena tu agenda.", en: "Get online bookings, collect the deposit and fill your schedule." },
+  "pub.pricingTitle": {
+    es: "Haz crecer tu negocio con Turno",
+    en: "Grow your business with Turno",
+  },
+  "pub.pricingSub": {
+    es: "Recibe reservas online, cobra la fianza y llena tu agenda.",
+    en: "Get online bookings, collect the deposit and fill your schedule.",
+  },
   "pub.registerBiz": { es: "Registra tu negocio", en: "List your business" },
   "common.download": { es: "Descargar CSV", en: "Download CSV" },
   "own.payoutSchedule": { es: "Calendario de depósitos", en: "Payout schedule" },
@@ -98,7 +137,10 @@ const dict = {
   // Reset de contraseña
   "reset.title": { es: "Nueva contraseña", en: "New password" },
   "reset.prompt": { es: "Escribe tu nueva contraseña", en: "Enter your new password" },
-  "reset.saved": { es: "✓ Contraseña actualizada. Ya puedes iniciar sesión.", en: "✓ Password updated. You can sign in now." },
+  "reset.saved": {
+    es: "✓ Contraseña actualizada. Ya puedes iniciar sesión.",
+    en: "✓ Password updated. You can sign in now.",
+  },
   "reset.goLogin": { es: "Ir a iniciar sesión", en: "Go to sign in" },
 
   // Verificación de email
@@ -109,10 +151,16 @@ const dict = {
 
   // Aceptar invitación
   "invite.title": { es: "Invitación a un negocio", en: "Business invitation" },
-  "invite.mustPro": { es: "Debes iniciar sesión como profesional para aceptar esta invitación.", en: "You must sign in as a professional to accept this invitation." },
+  "invite.mustPro": {
+    es: "Debes iniciar sesión como profesional para aceptar esta invitación.",
+    en: "You must sign in as a professional to accept this invitation.",
+  },
   "invite.invited": { es: "Has sido invitado a unirte a", en: "You've been invited to join" },
   "invite.accept": { es: "Aceptar y unirme", en: "Accept and join" },
-  "invite.joined": { es: "✓ Te uniste al negocio. Ya puedes configurar tus servicios y horarios.", en: "✓ You joined the business. You can now set up your services and schedule." },
+  "invite.joined": {
+    es: "✓ Te uniste al negocio. Ya puedes configurar tus servicios y horarios.",
+    en: "✓ You joined the business. You can now set up your services and schedule.",
+  },
   "invite.invalid": { es: "Invitación inválida", en: "Invalid invitation" },
   "pub.registerBusiness": { es: "Registra tu negocio", en: "List your business" },
   "mkt.segTreatment": { es: "Todos los servicios", en: "All services" },
@@ -128,11 +176,20 @@ const dict = {
   "mkt.trust2": { es: "Pago seguro", en: "Secure payment" },
   "mkt.trust3": { es: "Confirmación al instante", en: "Instant confirmation" },
   "mkt.value1t": { es: "Reserva en segundos", en: "Book in seconds" },
-  "mkt.value1d": { es: "Elige profesional y horario sin llamadas.", en: "Pick a pro and time, no phone calls." },
+  "mkt.value1d": {
+    es: "Elige profesional y horario sin llamadas.",
+    en: "Pick a pro and time, no phone calls.",
+  },
   "mkt.value2t": { es: "Pago seguro", en: "Secure payment" },
-  "mkt.value2d": { es: "Fianza de $2 para asegurar tu cita.", en: "$2 deposit to secure your appointment." },
+  "mkt.value2d": {
+    es: "Fianza de $2 para asegurar tu cita.",
+    en: "$2 deposit to secure your appointment.",
+  },
   "mkt.value3t": { es: "Recordatorios", en: "Reminders" },
-  "mkt.value3d": { es: "Te avisamos por email antes de tu cita.", en: "We remind you by email before your visit." },
+  "mkt.value3d": {
+    es: "Te avisamos por email antes de tu cita.",
+    en: "We remind you by email before your visit.",
+  },
 
   // Cliente - tabs y flujo
   "client.tabBook": { es: "Reservar cita", en: "Book appointment" },
@@ -143,21 +200,33 @@ const dict = {
   "step.time": { es: "4. Horario", en: "4. Time" },
   "step.payment": { es: "5. Pago", en: "5. Payment" },
   "client.searchBusiness": { es: "Busca un negocio", en: "Search a business" },
-  "client.searchPlaceholder": { es: "Nombre del negocio (barbería, estética, spa...)", en: "Business name (barbershop, salon, spa...)" },
+  "client.searchPlaceholder": {
+    es: "Nombre del negocio (barbería, estética, spa...)",
+    en: "Business name (barbershop, salon, spa...)",
+  },
   "client.noBusinesses": { es: "No hay negocios disponibles.", en: "No businesses available." },
   "client.chooseProfessional": { es: "elige profesional", en: "choose a professional" },
-  "client.noProfessionals": { es: "Este negocio aún no tiene profesionales activos.", en: "This business has no active professionals yet." },
+  "client.noProfessionals": {
+    es: "Este negocio aún no tiene profesionales activos.",
+    en: "This business has no active professionals yet.",
+  },
   "client.chooseService": { es: "elige servicio", en: "choose a service" },
   "client.noServices": { es: "Sin servicios configurados.", en: "No services configured." },
   "client.date": { es: "Fecha", en: "Date" },
   "client.availableSlots": { es: "Horarios disponibles", en: "Available times" },
-  "client.noSlots": { es: "No hay horarios libres para esta fecha.", en: "No free times for this date." },
+  "client.noSlots": {
+    es: "No hay horarios libres para esta fecha.",
+    en: "No free times for this date.",
+  },
   "client.summary": { es: "Resumen", en: "Summary" },
   "client.with": { es: "con", en: "with" },
   "client.deposit": { es: "Fianza de reserva", en: "Booking deposit" },
   "client.payAndBook": { es: "Pagar y reservar", en: "Pay and book" },
   "client.processing": { es: "Procesando pago...", en: "Processing payment..." },
-  "client.depositNote": { es: "El pago de la fianza confirma la cita y bloquea el horario.", en: "The deposit confirms the appointment and blocks the time slot." },
+  "client.depositNote": {
+    es: "El pago de la fianza confirma la cita y bloquea el horario.",
+    en: "The deposit confirms the appointment and blocks the time slot.",
+  },
   "client.min": { es: "min", en: "min" },
 
   // Historial
@@ -179,12 +248,21 @@ const dict = {
   "pro.tabProfile": { es: "Perfil", en: "Profile" },
   "pro.tabEarnings": { es: "Ingresos", en: "Earnings" },
   "pro.earningsTitle": { es: "Mis ingresos (este mes)", en: "My earnings (this month)" },
-  "pro.earningsHelp": { es: "Desglose de lo que generaste para cuadrar con el negocio a la hora de cobrar.", en: "Breakdown of what you generated, to reconcile with the business at payout time." },
+  "pro.earningsHelp": {
+    es: "Desglose de lo que generaste para cuadrar con el negocio a la hora de cobrar.",
+    en: "Breakdown of what you generated, to reconcile with the business at payout time.",
+  },
   "pro.paidBookings": { es: "Reservas pagadas", en: "Paid bookings" },
-  "pro.generatedForBusiness": { es: "Generado para el negocio (fianzas)", en: "Generated for the business (deposits)" },
+  "pro.generatedForBusiness": {
+    es: "Generado para el negocio (fianzas)",
+    en: "Generated for the business (deposits)",
+  },
   "pro.serviceValue": { es: "Valor de servicios", en: "Service value" },
   "pro.detail": { es: "Detalle de reservas pagadas", en: "Paid bookings detail" },
-  "pro.noEarnings": { es: "Aún no tienes reservas pagadas este mes.", en: "No paid bookings this month yet." },
+  "pro.noEarnings": {
+    es: "Aún no tienes reservas pagadas este mes.",
+    en: "No paid bookings this month yet.",
+  },
   "pro.allTime": { es: "histórico total", en: "all-time" },
 
   // Admin
@@ -228,11 +306,20 @@ const dict = {
   "pro.myServices": { es: "Mis servicios", en: "My services" },
   "pro.noServices": { es: "Sin servicios.", en: "No services." },
   "pro.weeklyAvail": { es: "Mi disponibilidad semanal", en: "My weekly availability" },
-  "pro.availHelp": { es: "Define tus rangos horarios por día. Los clientes solo verán slots dentro de estos rangos.", en: "Set your time ranges per day. Clients only see slots within these ranges." },
+  "pro.availHelp": {
+    es: "Define tus rangos horarios por día. Los clientes solo verán slots dentro de estos rangos.",
+    en: "Set your time ranges per day. Clients only see slots within these ranges.",
+  },
   "pro.addRange": { es: "+ Agregar rango", en: "+ Add range" },
   "pro.availSaved": { es: "✓ Disponibilidad guardada", en: "✓ Availability saved" },
-  "pro.blockTitle": { es: "Bloquear agenda (descanso / vacaciones)", en: "Block schedule (break / holidays)" },
-  "pro.blockHelp": { es: "Los clientes no podrán reservar en el tiempo bloqueado.", en: "Clients can't book during blocked time." },
+  "pro.blockTitle": {
+    es: "Bloquear agenda (descanso / vacaciones)",
+    en: "Block schedule (break / holidays)",
+  },
+  "pro.blockHelp": {
+    es: "Los clientes no podrán reservar en el tiempo bloqueado.",
+    en: "Clients can't book during blocked time.",
+  },
   "pro.date": { es: "Fecha", en: "Date" },
   "pro.allDay": { es: "Todo el día", en: "All day" },
   "pro.from": { es: "Desde", en: "From" },
@@ -245,28 +332,52 @@ const dict = {
   "pro.noAppts": { es: "No tienes citas próximas.", en: "You have no upcoming appointments." },
   "pro.requestJoin": { es: "Solicitar unirme a un negocio", en: "Request to join a business" },
   "pro.requestJoinBtn": { es: "Solicitar unirme", en: "Request to join" },
-  "pro.requestSent": { es: "Solicitud enviada. Espera la aprobación del dueño.", en: "Request sent. Wait for the owner's approval." },
+  "pro.requestSent": {
+    es: "Solicitud enviada. Espera la aprobación del dueño.",
+    en: "Request sent. Wait for the owner's approval.",
+  },
   "pro.profilePhoto": { es: "Foto de perfil", en: "Profile photo" },
-  "pro.serviceImage": { es: "Subir foto del servicio (corte, peinado...)", en: "Upload service photo (cut, style...)" },
-  "pro.photoHelp": { es: "Sube tu foto (jpg/png/webp, máx 3MB). La verán los clientes al elegir profesional.", en: "Upload your photo (jpg/png/webp, max 3MB). Clients see it when choosing a professional." },
+  "pro.serviceImage": {
+    es: "Subir foto del servicio (corte, peinado...)",
+    en: "Upload service photo (cut, style...)",
+  },
+  "pro.photoHelp": {
+    es: "Sube tu foto (jpg/png/webp, máx 3MB). La verán los clientes al elegir profesional.",
+    en: "Upload your photo (jpg/png/webp, max 3MB). Clients see it when choosing a professional.",
+  },
 
   // Dueño (panel)
   "own.createBusiness": { es: "Crear negocio", en: "Create business" },
   "own.commercialName": { es: "Nombre comercial", en: "Business name" },
   "own.type": { es: "Tipo de negocio", en: "Business type" },
   "own.address": { es: "Dirección", en: "Address" },
-  "own.locationLabel": { es: "Ubicación en el mapa (para que los clientes te encuentren)", en: "Map location (so clients can find you)" },
+  "own.locationLabel": {
+    es: "Ubicación en el mapa (para que los clientes te encuentren)",
+    en: "Map location (so clients can find you)",
+  },
   "own.useLocation": { es: "Usar mi ubicación actual", en: "Use my current location" },
-  "own.useLocationOpt": { es: "Usar mi ubicación actual (opcional)", en: "Use my current location (optional)" },
+  "own.useLocationOpt": {
+    es: "Usar mi ubicación actual (opcional)",
+    en: "Use my current location (optional)",
+  },
   "own.locationSet": { es: "Ubicación fijada ✓", en: "Location set ✓" },
   "own.locating": { es: "Ubicando...", en: "Locating..." },
   "own.phone": { es: "Teléfono de contacto", en: "Contact phone" },
   "own.create": { es: "Crear", en: "Create" },
-  "own.created": { es: "✓ Negocio creado (14 días de prueba)", en: "✓ Business created (14-day trial)" },
+  "own.created": {
+    es: "✓ Negocio creado (14 días de prueba)",
+    en: "✓ Business created (14-day trial)",
+  },
   "own.selectBusiness": { es: "Selecciona tu negocio", en: "Select your business" },
-  "own.selectHelp": { es: "Elige el negocio para gestionar su equipo.", en: "Choose the business to manage its team." },
+  "own.selectHelp": {
+    es: "Elige el negocio para gestionar su equipo.",
+    en: "Choose the business to manage its team.",
+  },
   "own.manage": { es: "Gestionar", en: "Manage" },
-  "own.noBusinesses": { es: "Aún no hay negocios. Crea uno arriba.", en: "No businesses yet. Create one above." },
+  "own.noBusinesses": {
+    es: "Aún no hay negocios. Crea uno arriba.",
+    en: "No businesses yet. Create one above.",
+  },
   "own.activeTeam": { es: "Equipo activo", en: "Active team" },
   "own.professionals": { es: "profesionales", en: "professionals" },
   "own.remove": { es: "Quitar", en: "Remove" },
@@ -275,17 +386,29 @@ const dict = {
   "own.accept": { es: "Aceptar", en: "Accept" },
   "own.reject": { es: "Rechazar", en: "Reject" },
   "own.noPending": { es: "No hay solicitudes pendientes.", en: "No pending requests." },
-  "own.limitReached": { es: "Alcanzaste el máximo de profesionales. Quita uno para aceptar otro.", en: "You reached the maximum professionals. Remove one to accept another." },
+  "own.limitReached": {
+    es: "Alcanzaste el máximo de profesionales. Quita uno para aceptar otro.",
+    en: "You reached the maximum professionals. Remove one to accept another.",
+  },
   "own.locationTitle": { es: "Ubicación del negocio", en: "Business location" },
-  "own.locationHelp": { es: "Los clientes verán tu dirección y podrán abrirla en el mapa; con coordenadas apareces en \"cerca de ti\".", en: "Clients see your address and can open it on the map; with coordinates you appear in \"near you\"." },
+  "own.locationHelp": {
+    es: 'Los clientes verán tu dirección y podrán abrirla en el mapa; con coordenadas apareces en "cerca de ti".',
+    en: 'Clients see your address and can open it on the map; with coordinates you appear in "near you".',
+  },
   "own.saveLocation": { es: "Guardar ubicación", en: "Save location" },
   "own.locationSaved": { es: "✓ Ubicación actualizada", en: "✓ Location updated" },
   "own.coverPhoto": { es: "Foto de portada", en: "Cover photo" },
-  "own.coverHelp": { es: "La imagen grande que ven los clientes en tu ficha.", en: "The large image clients see on your page." },
+  "own.coverHelp": {
+    es: "La imagen grande que ven los clientes en tu ficha.",
+    en: "The large image clients see on your page.",
+  },
   "own.logo": { es: "Logo del negocio", en: "Business logo" },
   "own.logoHelp": { es: "Icono del negocio.", en: "Business icon." },
   "own.inviteTitle": { es: "Invitar profesional por link", en: "Invite professional by link" },
-  "own.inviteHelp": { es: "Genera un enlace único (válido 7 días). El profesional lo abre y se une directamente.", en: "Generate a unique link (valid 7 days). The professional opens it and joins directly." },
+  "own.inviteHelp": {
+    es: "Genera un enlace único (válido 7 días). El profesional lo abre y se une directamente.",
+    en: "Generate a unique link (valid 7 days). The professional opens it and joins directly.",
+  },
   "own.inviteGen": { es: "Generar link de invitación", en: "Generate invite link" },
   "own.copy": { es: "Copiar", en: "Copy" },
   "own.subscription": { es: "Suscripción SaaS", en: "SaaS subscription" },
@@ -302,79 +425,160 @@ const dict = {
   "own.choosePlan": { es: "Elegir plan", en: "Choose plan" },
   "own.currentPlan": { es: "Plan actual", en: "Current plan" },
   "own.payouts": { es: "Recibir tus cobros", en: "Receive your payouts" },
-  "own.payoutsHelp": { es: "Conecta tu cuenta para recibir tu parte de la fianza de cada reserva (la plataforma retiene una pequeña comisión).", en: "Connect your account to receive your share of each booking deposit (the platform keeps a small fee)." },
+  "own.payoutsHelp": {
+    es: "Conecta tu cuenta para recibir tu parte de la fianza de cada reserva (la plataforma retiene una pequeña comisión).",
+    en: "Connect your account to receive your share of each booking deposit (the platform keeps a small fee).",
+  },
   "own.payoutsConnect": { es: "Conectar cobros", en: "Connect payouts" },
   "own.payoutsActive": { es: "✓ Cobros activos", en: "✓ Payouts active" },
-  "own.payoutsPending": { es: "Onboarding pendiente — pulsa para completar", en: "Onboarding pending — click to finish" },
+  "own.payoutsPending": {
+    es: "Onboarding pendiente — pulsa para completar",
+    en: "Onboarding pending — click to finish",
+  },
   "own.splitTitle": { es: "Reparto de cada fianza", en: "How each deposit is split" },
   "own.splitBusiness": { es: "Tu negocio", en: "Your business" },
   "own.splitPlatform": { es: "Turno", en: "Turno" },
   "own.splitStripe": { es: "Comisión Stripe", en: "Stripe fee" },
-  "own.settlement": { es: "Liquidación por empleado (este mes)", en: "Settlement by employee (this month)" },
-  "own.settlementHelp": { es: "La fianza va a tu cuenta; aquí ves cuánto generó cada empleado para que le pagues su parte.", en: "Deposits go to your account; here you see how much each employee generated to pay them their share." },
+  "own.settlement": {
+    es: "Liquidación por empleado (este mes)",
+    en: "Settlement by employee (this month)",
+  },
+  "own.settlementHelp": {
+    es: "La fianza va a tu cuenta; aquí ves cuánto generó cada empleado para que le pagues su parte.",
+    en: "Deposits go to your account; here you see how much each employee generated to pay them their share.",
+  },
   "own.employee": { es: "Empleado", en: "Employee" },
   "own.bookings": { es: "Reservas", en: "Bookings" },
   "own.forBusiness": { es: "Para el negocio", en: "For the business" },
-  "own.noSettlement": { es: "Aún no hay reservas pagadas este mes.", en: "No paid bookings this month yet." },
+  "own.noSettlement": {
+    es: "Aún no hay reservas pagadas este mes.",
+    en: "No paid bookings this month yet.",
+  },
   "own.analytics": { es: "Analítica del negocio", en: "Business analytics" },
   "own.totalBookings": { es: "Reservas totales", en: "Total bookings" },
   "own.incomeCompleted": { es: "Ingresos (completadas)", en: "Income (completed)" },
   "own.bookingsByPro": { es: "Reservas por profesional", en: "Bookings by professional" },
   // ---------- Pago de la fianza ----------
   "pay.title": { es: "Pago de la fianza", en: "Deposit payment" },
-  "pay.depositNote": { es: "Se cobra una fianza de ${monto} para confirmar la cita. Es reembolsable si cancelas con antelación.", en: "A ${monto} deposit confirms your appointment. Refundable if you cancel in time." },
+  "pay.depositNote": {
+    es: "Se cobra una fianza de ${monto} para confirmar la cita. Es reembolsable si cancelas con antelación.",
+    en: "A ${monto} deposit confirms your appointment. Refundable if you cancel in time.",
+  },
   "pay.payNow": { es: "Pagar ${monto}", en: "Pay ${monto}" },
   "pay.processing": { es: "Procesando el pago…", en: "Processing payment…" },
-  "pay.confirming": { es: "Confirmando el pago con la pasarela…", en: "Confirming the payment with the gateway…" },
+  "pay.confirming": {
+    es: "Confirmando el pago con la pasarela…",
+    en: "Confirming the payment with the gateway…",
+  },
   "pay.capturing": { es: "Confirmando tu pago…", en: "Confirming your payment…" },
   "pay.redirecting": { es: "Te llevamos a PayPal…", en: "Taking you to PayPal…" },
   "pay.failed": { es: "No se pudo completar el pago", en: "The payment could not be completed" },
   "pay.holdLeft": { es: "Tu hueco está reservado", en: "Your slot is held" },
-  "pay.expired": { es: "El tiempo de reserva ha caducado. Vuelve a elegir horario.", en: "The hold expired. Please pick a time again." },
-  "pay.secureNote": { es: "Pago seguro procesado por la pasarela. Turno no guarda los datos de tu tarjeta.", en: "Secure payment handled by the gateway. Turno never stores your card details." },
-  "pay.missingKey": { es: "Falta configurar la clave pública de Stripe (VITE_STRIPE_PUBLISHABLE_KEY).", en: "Stripe publishable key is not configured (VITE_STRIPE_PUBLISHABLE_KEY)." },
-  "pay.noSecret": { es: "La pasarela no devolvió datos de pago.", en: "The gateway returned no payment data." },
+  "pay.expired": {
+    es: "El tiempo de reserva ha caducado. Vuelve a elegir horario.",
+    en: "The hold expired. Please pick a time again.",
+  },
+  "pay.secureNote": {
+    es: "Pago seguro procesado por la pasarela. Turno no guarda los datos de tu tarjeta.",
+    en: "Secure payment handled by the gateway. Turno never stores your card details.",
+  },
+  "pay.missingKey": {
+    es: "Falta configurar la clave pública de Stripe (VITE_STRIPE_PUBLISHABLE_KEY).",
+    en: "Stripe publishable key is not configured (VITE_STRIPE_PUBLISHABLE_KEY).",
+  },
+  "pay.noSecret": {
+    es: "La pasarela no devolvió datos de pago.",
+    en: "The gateway returned no payment data.",
+  },
   "pay.done": { es: "¡Pago completado!", en: "Payment complete!" },
-  "pay.doneNote": { es: "Tu cita está confirmada. Te hemos enviado el código de validación por email.", en: "Your appointment is confirmed. We emailed you the validation code." },
+  "pay.doneNote": {
+    es: "Tu cita está confirmada. Te hemos enviado el código de validación por email.",
+    en: "Your appointment is confirmed. We emailed you the validation code.",
+  },
   "pay.goHome": { es: "Ir a mis reservas", en: "Go to my bookings" },
   "pay.step": { es: "Pago", en: "Payment" },
 
   // ---------- Cierre de citas (negocio) ----------
   "close.title": { es: "Validar cita en el local", en: "Check in an appointment" },
-  "close.help": { es: "Pide al cliente el código de su reserva y valídalo para cerrar la cita.", en: "Ask the client for their booking code and validate it to close the appointment." },
+  "close.help": {
+    es: "Pide al cliente el código de su reserva y valídalo para cerrar la cita.",
+    en: "Ask the client for their booking code and validate it to close the appointment.",
+  },
   "close.codePlaceholder": { es: "Código (ej. K7M2PQRS)", en: "Code (e.g. K7M2PQRS)" },
   "close.validate": { es: "Validar", en: "Validate" },
-  "close.validated": { es: "Cita validada y completada ✅", en: "Appointment validated and completed ✅" },
-  "close.already": { es: "Esta cita ya estaba completada", en: "This appointment was already completed" },
+  "close.validated": {
+    es: "Cita validada y completada ✅",
+    en: "Appointment validated and completed ✅",
+  },
+  "close.already": {
+    es: "Esta cita ya estaba completada",
+    en: "This appointment was already completed",
+  },
   "close.invalid": { es: "Código no válido", en: "Invalid code" },
   "close.complete": { es: "Completar", en: "Complete" },
   "close.noShow": { es: "No asistió", en: "No-show" },
   "close.cancelBiz": { es: "Cancelar cita", en: "Cancel appointment" },
-  "close.cancelReason": { es: "Motivo (lo verá el cliente)", en: "Reason (the client will see it)" },
-  "close.cancelConfirm": { es: "Se cancelará la cita y se devolverá la fianza al cliente. ¿Continuar?", en: "The appointment will be cancelled and the deposit refunded. Continue?" },
-  "close.noShowConfirm": { es: "Marcar que el cliente no apareció. La fianza NO se devuelve. ¿Continuar?", en: "Mark the client as a no-show. The deposit is NOT refunded. Continue?" },
-  "close.cancelled": { es: "Cita cancelada y fianza devuelta", en: "Appointment cancelled and deposit refunded" },
+  "close.cancelReason": {
+    es: "Motivo (lo verá el cliente)",
+    en: "Reason (the client will see it)",
+  },
+  "close.cancelConfirm": {
+    es: "Se cancelará la cita y se devolverá la fianza al cliente. ¿Continuar?",
+    en: "The appointment will be cancelled and the deposit refunded. Continue?",
+  },
+  "close.noShowConfirm": {
+    es: "Marcar que el cliente no apareció. La fianza NO se devuelve. ¿Continuar?",
+    en: "Mark the client as a no-show. The deposit is NOT refunded. Continue?",
+  },
+  "close.cancelled": {
+    es: "Cita cancelada y fianza devuelta",
+    en: "Appointment cancelled and deposit refunded",
+  },
   "close.pendingPayment": { es: "Pago pendiente", en: "Payment pending" },
 
   // ---------- Suscripción / facturación ----------
   "sub.manage": { es: "Gestionar facturación", en: "Manage billing" },
-  "sub.manageHelp": { es: "Cambia de plan, actualiza la tarjeta, descarga facturas o cancela.", en: "Change plan, update your card, download invoices or cancel." },
+  "sub.manageHelp": {
+    es: "Cambia de plan, actualiza la tarjeta, descarga facturas o cancela.",
+    en: "Change plan, update your card, download invoices or cancel.",
+  },
   "sub.cancel": { es: "Cancelar suscripción", en: "Cancel subscription" },
-  "sub.cancelConfirm": { es: "Tu plan no se renovará y mantienes el servicio hasta el final del periodo. ¿Continuar?", en: "Your plan will not renew and you keep the service until the period ends. Continue?" },
+  "sub.cancelConfirm": {
+    es: "Tu plan no se renovará y mantienes el servicio hasta el final del periodo. ¿Continuar?",
+    en: "Your plan will not renew and you keep the service until the period ends. Continue?",
+  },
   "sub.daysLeft": { es: "{dias} día(s) restantes", en: "{dias} day(s) left" },
-  "sub.expired": { es: "Suscripción vencida: tu negocio no aparece en las búsquedas ni acepta reservas.", en: "Subscription expired: your business is hidden from search and cannot take bookings." },
-  "sub.expiringSoon": { es: "Tu suscripción vence en {dias} día(s).", en: "Your subscription expires in {dias} day(s)." },
+  "sub.expired": {
+    es: "Suscripción vencida: tu negocio no aparece en las búsquedas ni acepta reservas.",
+    en: "Subscription expired: your business is hidden from search and cannot take bookings.",
+  },
+  "sub.expiringSoon": {
+    es: "Tu suscripción vence en {dias} día(s).",
+    en: "Your subscription expires in {dias} day(s).",
+  },
   "sub.trial": { es: "Prueba gratuita", en: "Free trial" },
   "sub.renew": { es: "Renovar ahora", en: "Renew now" },
 
   // ---------- Negocio: ajustes ----------
   "biz.timezone": { es: "Zona horaria del local", en: "Business time zone" },
-  "biz.timezoneHelp": { es: "De ella dependen los horarios, la agenda y los recordatorios.", en: "Schedules, agenda and reminders all depend on it." },
+  "biz.timezoneHelp": {
+    es: "De ella dependen los horarios, la agenda y los recordatorios.",
+    en: "Schedules, agenda and reminders all depend on it.",
+  },
   "biz.removeMember": { es: "Dar de baja", en: "Remove" },
-  "biz.removeMemberConfirm": { es: "Se dará de baja al profesional y se cancelarán sus citas futuras (con reembolso). ¿Continuar?", en: "The professional will be removed and their upcoming appointments cancelled (with refund). Continue?" },
-  "biz.memberRemoved": { es: "Profesional dado de baja. Citas canceladas: {n}", en: "Professional removed. Appointments cancelled: {n}" },
+  "biz.removeMemberConfirm": {
+    es: "Se dará de baja al profesional y se cancelarán sus citas futuras (con reembolso). ¿Continuar?",
+    en: "The professional will be removed and their upcoming appointments cancelled (with refund). Continue?",
+  },
+  "biz.memberRemoved": {
+    es: "Profesional dado de baja. Citas canceladas: {n}",
+    en: "Professional removed. Appointments cancelled: {n}",
+  },
   "biz.myServices": { es: "Mis servicios y agenda", en: "My services and agenda" },
-  "biz.myServicesHelp": { es: "Como dueño también eres reservable: configura aquí tus servicios y tu horario.", en: "As the owner you are bookable too: set your services and schedule here." },
+  "biz.myServicesHelp": {
+    es: "Como dueño también eres reservable: configura aquí tus servicios y tu horario.",
+    en: "As the owner you are bookable too: set your services and schedule here.",
+  },
 
   // ---------- Ficha pública del negocio ----------
   "pub.bookHere": { es: "Reservar en este negocio", en: "Book at this business" },
@@ -387,7 +591,10 @@ const dict = {
 
   // ---------- Estados de cita ----------
   "state.cancelledByBiz": { es: "Cancelada por el negocio", en: "Cancelled by the business" },
-  "state.cancelledBySystem": { es: "Cancelada por falta de pago", en: "Cancelled: payment not completed" },
+  "state.cancelledBySystem": {
+    es: "Cancelada por falta de pago",
+    en: "Cancelled: payment not completed",
+  },
   "state.reason": { es: "Motivo", en: "Reason" },
   "state.completed": { es: "Completada", en: "Completed" },
   "state.noShow": { es: "No asistió", en: "No-show" },
@@ -395,8 +602,14 @@ const dict = {
 
   // Embudo de conversión (superadmin)
   "sa.tabFunnel": { es: "Embudo", en: "Funnel" },
-  "sa.funnelHelp": { es: "Sesiones distintas que llegan a cada paso. Lo que las reservas no cuentan: quién se fue antes de pagar.", en: "Distinct sessions reaching each step. What bookings cannot tell you: who left before paying." },
-  "sa.funnelEmpty": { es: "Todavía no hay eventos en ese periodo.", en: "No events in that period yet." },
+  "sa.funnelHelp": {
+    es: "Sesiones distintas que llegan a cada paso. Lo que las reservas no cuentan: quién se fue antes de pagar.",
+    en: "Distinct sessions reaching each step. What bookings cannot tell you: who left before paying.",
+  },
+  "sa.funnelEmpty": {
+    es: "Todavía no hay eventos en ese periodo.",
+    en: "No events in that period yet.",
+  },
   "sa.funnelStep": { es: "Paso", en: "Step" },
   "sa.funnelSessions": { es: "Sesiones", en: "Sessions" },
   "sa.funnelDropoff": { es: "Abandono", en: "Drop-off" },
@@ -404,33 +617,75 @@ const dict = {
 
   // Segundo factor (2FA)
   "twofa.title": { es: "Verificación en dos pasos", en: "Two-step verification" },
-  "twofa.loginHelp": { es: "Abre tu app de autenticación e introduce el código de 6 dígitos. También vale uno de tus códigos de recuperación.", en: "Open your authenticator app and enter the 6-digit code. One of your recovery codes also works." },
+  "twofa.loginHelp": {
+    es: "Abre tu app de autenticación e introduce el código de 6 dígitos. También vale uno de tus códigos de recuperación.",
+    en: "Open your authenticator app and enter the 6-digit code. One of your recovery codes also works.",
+  },
   "twofa.code": { es: "Código", en: "Code" },
   "twofa.verify": { es: "Verificar", en: "Verify" },
-  "twofa.lostPhone": { es: "¿Perdiste el móvil? Usa uno de los códigos de recuperación que guardaste al activarlo.", en: "Lost your phone? Use one of the recovery codes you saved when you turned it on." },
+  "twofa.lostPhone": {
+    es: "¿Perdiste el móvil? Usa uno de los códigos de recuperación que guardaste al activarlo.",
+    en: "Lost your phone? Use one of the recovery codes you saved when you turned it on.",
+  },
   "twofa.settingsTitle": { es: "Verificación en dos pasos", en: "Two-step verification" },
-  "twofa.required": { es: "Tu cuenta de superadmin necesita verificación en dos pasos para entrar al panel.", en: "Your superadmin account needs two-step verification to access the panel." },
-  "twofa.inactiveHelp": { es: "Añade un segundo paso al iniciar sesión: aunque alguien tenga tu contraseña, no podrá entrar.", en: "Add a second step when signing in: even with your password, nobody else can get in." },
+  "twofa.required": {
+    es: "Tu cuenta de superadmin necesita verificación en dos pasos para entrar al panel.",
+    en: "Your superadmin account needs two-step verification to access the panel.",
+  },
+  "twofa.inactiveHelp": {
+    es: "Añade un segundo paso al iniciar sesión: aunque alguien tenga tu contraseña, no podrá entrar.",
+    en: "Add a second step when signing in: even with your password, nobody else can get in.",
+  },
   "twofa.enable": { es: "Activar", en: "Turn on" },
-  "twofa.scanHelp": { es: "Escanea este código con Google Authenticator, Authy, 1Password o la app que uses.", en: "Scan this code with Google Authenticator, Authy, 1Password or your app of choice." },
-  "twofa.qrAlt": { es: "Código QR para la app de autenticación", en: "QR code for the authenticator app" },
-  "twofa.manualKey": { es: "Si no puedes escanear, introduce esta clave a mano:", en: "If you cannot scan, enter this key manually:" },
-  "twofa.enterCode": { es: "Introduce el código que muestra la app", en: "Enter the code shown by the app" },
+  "twofa.scanHelp": {
+    es: "Escanea este código con Google Authenticator, Authy, 1Password o la app que uses.",
+    en: "Scan this code with Google Authenticator, Authy, 1Password or your app of choice.",
+  },
+  "twofa.qrAlt": {
+    es: "Código QR para la app de autenticación",
+    en: "QR code for the authenticator app",
+  },
+  "twofa.manualKey": {
+    es: "Si no puedes escanear, introduce esta clave a mano:",
+    en: "If you cannot scan, enter this key manually:",
+  },
+  "twofa.enterCode": {
+    es: "Introduce el código que muestra la app",
+    en: "Enter the code shown by the app",
+  },
   "twofa.activate": { es: "Confirmar y activar", en: "Confirm and turn on" },
   "twofa.active": { es: "Verificación en dos pasos activada.", en: "Two-step verification is on." },
-  "twofa.codesLeft": { es: "Te quedan {n} códigos de recuperación sin usar.", en: "You have {n} unused recovery codes left." },
-  "twofa.passwordToDisable": { es: "Tu contraseña (para desactivarlo)", en: "Your password (to turn it off)" },
+  "twofa.codesLeft": {
+    es: "Te quedan {n} códigos de recuperación sin usar.",
+    en: "You have {n} unused recovery codes left.",
+  },
+  "twofa.passwordToDisable": {
+    es: "Tu contraseña (para desactivarlo)",
+    en: "Your password (to turn it off)",
+  },
   "twofa.disable": { es: "Desactivar", en: "Turn off" },
-  "twofa.recoveryTitle": { es: "Guarda estos códigos de recuperación", en: "Save these recovery codes" },
-  "twofa.recoveryHelp": { es: "Son tu única forma de entrar si pierdes el móvil. Cada uno sirve una vez y no se volverán a mostrar.", en: "They are your only way in if you lose your phone. Each works once and will not be shown again." },
+  "twofa.recoveryTitle": {
+    es: "Guarda estos códigos de recuperación",
+    en: "Save these recovery codes",
+  },
+  "twofa.recoveryHelp": {
+    es: "Son tu única forma de entrar si pierdes el móvil. Cada uno sirve una vez y no se volverán a mostrar.",
+    en: "They are your only way in if you lose your phone. Each works once and will not be shown again.",
+  },
   "twofa.download": { es: "Descargar en un archivo", en: "Download as a file" },
 
   // Lista de espera
   "wait.title": { es: "Lista de espera", en: "Waiting list" },
-  "wait.noSlots": { es: "No queda ningún hueco libre ese día.", en: "No free slots left that day." },
+  "wait.noSlots": {
+    es: "No queda ningún hueco libre ese día.",
+    en: "No free slots left that day.",
+  },
   "wait.join": { es: "Avisadme si se libera un hueco", en: "Let me know if a slot frees up" },
   "wait.joining": { es: "Apuntando…", en: "Joining…" },
-  "wait.joined": { es: "Listo: te avisaremos por email si alguien cancela ese día.", en: "Done: we will email you if someone cancels that day." },
+  "wait.joined": {
+    es: "Listo: te avisaremos por email si alguien cancela ese día.",
+    en: "Done: we will email you if someone cancels that day.",
+  },
   "wait.window": { es: "Franja que te interesa (opcional)", en: "Preferred time range (optional)" },
   "wait.from": { es: "Desde", en: "From" },
   "wait.to": { es: "Hasta", en: "To" },
@@ -439,44 +694,83 @@ const dict = {
   "wait.leave": { es: "Salir de la lista", en: "Leave list" },
   "wait.notified": { es: "Avisado", en: "Notified" },
   "wait.waiting": { es: "Esperando", en: "Waiting" },
-  "wait.empty": { es: "No estás en ninguna lista de espera.", en: "You are not on any waiting list." },
+  "wait.empty": {
+    es: "No estás en ninguna lista de espera.",
+    en: "You are not on any waiting list.",
+  },
   "wait.queue": { es: "Cola de espera", en: "Waiting queue" },
   "wait.queueEmpty": { es: "Nadie esperando para ese día.", en: "Nobody waiting for that day." },
-  "wait.queueHelp": { es: "Clientes que quieren hueco ese día. Si cancelas una cita, se les avisa automáticamente.", en: "Clients wanting a slot that day. If you cancel an appointment, they get notified automatically." },
+  "wait.queueHelp": {
+    es: "Clientes que quieren hueco ese día. Si cancelas una cita, se les avisa automáticamente.",
+    en: "Clients wanting a slot that day. If you cancel an appointment, they get notified automatically.",
+  },
 
   "client.bookWithPackage": { es: "Reservar con mi bono", en: "Book with my package" },
 
   // Bonos y paquetes
   "bono.mine": { es: "Mis bonos", en: "My packages" },
-  "bono.empty": { es: "No tienes bonos. Pregunta en tu negocio: salen más baratos que las sesiones sueltas.", en: "You have no packages. Ask at your business: they are cheaper than single sessions." },
-  "bono.remaining": { es: "{n} de {total} sesiones disponibles", en: "{n} of {total} sessions available" },
+  "bono.empty": {
+    es: "No tienes bonos. Pregunta en tu negocio: salen más baratos que las sesiones sueltas.",
+    en: "You have no packages. Ask at your business: they are cheaper than single sessions.",
+  },
+  "bono.remaining": {
+    es: "{n} de {total} sesiones disponibles",
+    en: "{n} of {total} sessions available",
+  },
   "bono.expires": { es: "Caduca el {fecha}", en: "Expires on {fecha}" },
   "bono.expired": { es: "Caducado", en: "Expired" },
   "bono.exhausted": { es: "Agotado", en: "Used up" },
-  "bono.willUse": { es: "Esta reserva usará una sesión de tu bono: no se cobra fianza.", en: "This booking will use one session from your package: no deposit charged." },
+  "bono.willUse": {
+    es: "Esta reserva usará una sesión de tu bono: no se cobra fianza.",
+    en: "This booking will use one session from your package: no deposit charged.",
+  },
   "bono.used": { es: "Pagado con bono", en: "Paid with package" },
   "bono.packages": { es: "Paquetes y bonos", en: "Packages" },
-  "bono.packagesHelp": { es: "El cliente paga el paquete en el local; aquí solo se llevan las sesiones. Al reservar se descuenta una y no paga fianza.", en: "The client pays for the package at your shop; here we only track sessions. Booking uses one and skips the deposit." },
+  "bono.packagesHelp": {
+    es: "El cliente paga el paquete en el local; aquí solo se llevan las sesiones. Al reservar se descuenta una y no paga fianza.",
+    en: "The client pays for the package at your shop; here we only track sessions. Booking uses one and skips the deposit.",
+  },
   "bono.newPackage": { es: "Nuevo paquete", en: "New package" },
   "bono.name": { es: "Nombre (ej. 10 cortes)", en: "Name (e.g. 10 haircuts)" },
   "bono.sessions": { es: "Sesiones", en: "Sessions" },
   "bono.price": { es: "Precio total", en: "Total price" },
-  "bono.validity": { es: "Validez en días (vacío = sin caducidad)", en: "Validity in days (empty = no expiry)" },
+  "bono.validity": {
+    es: "Validez en días (vacío = sin caducidad)",
+    en: "Validity in days (empty = no expiry)",
+  },
   "bono.service": { es: "Servicio", en: "Service" },
   "bono.create": { es: "Crear paquete", en: "Create package" },
   "bono.deactivate": { es: "Desactivar", en: "Deactivate" },
   "bono.issue": { es: "Registrar bono a un cliente", en: "Register a package for a client" },
-  "bono.issueEmail": { es: "Email del cliente (debe tener cuenta)", en: "Client email (must have an account)" },
+  "bono.issueEmail": {
+    es: "Email del cliente (debe tener cuenta)",
+    en: "Client email (must have an account)",
+  },
   "bono.issueDo": { es: "Registrar bono", en: "Register package" },
-  "bono.issued": { es: "Bono registrado. El cliente ya puede reservar sin pagar fianza.", en: "Package registered. The client can now book without paying a deposit." },
-  "bono.sold": { es: "{vendidos} bonos · {usadas}/{sesiones} sesiones usadas · {ingresos} cobrados", en: "{vendidos} packages · {usadas}/{sesiones} sessions used · {ingresos} collected" },
-  "bono.noPackages": { es: "Todavía no has creado ningún paquete.", en: "You have not created any package yet." },
+  "bono.issued": {
+    es: "Bono registrado. El cliente ya puede reservar sin pagar fianza.",
+    en: "Package registered. The client can now book without paying a deposit.",
+  },
+  "bono.sold": {
+    es: "{vendidos} bonos · {usadas}/{sesiones} sesiones usadas · {ingresos} cobrados",
+    en: "{vendidos} packages · {usadas}/{sesiones} sessions used · {ingresos} collected",
+  },
+  "bono.noPackages": {
+    es: "Todavía no has creado ningún paquete.",
+    en: "You have not created any package yet.",
+  },
 
   // Propinas
   "tip.label": { es: "Propina (opcional)", en: "Tip (optional)" },
-  "tip.help": { es: "Si el cliente ha dejado propina en el local, anótala aquí para que cuente en tus ingresos.", en: "If the client tipped at your shop, record it here so it counts in your income." },
+  "tip.help": {
+    es: "Si el cliente ha dejado propina en el local, anótala aquí para que cuente en tus ingresos.",
+    en: "If the client tipped at your shop, record it here so it counts in your income.",
+  },
   "tip.total": { es: "Propinas", en: "Tips" },
-  "state.reviewPrompt": { es: "¿Cómo fue tu cita? Déjale una reseña.", en: "How was your appointment? Leave a review." },
+  "state.reviewPrompt": {
+    es: "¿Cómo fue tu cita? Déjale una reseña.",
+    en: "How was your appointment? Leave a review.",
+  },
 } as const;
 
 export type TKey = keyof typeof dict;

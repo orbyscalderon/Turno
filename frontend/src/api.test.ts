@@ -85,7 +85,9 @@ describe("peticiones", () => {
   });
 
   it("convierte el error de la API en ApiError con código", async () => {
-    fetchMock.mockResolvedValue(respuesta(409, { error: "Ese horario ya está cogido", code: "SLOT_OCUPADO" }));
+    fetchMock.mockResolvedValue(
+      respuesta(409, { error: "Ese horario ya está cogido", code: "SLOT_OCUPADO" }),
+    );
 
     await expect(api.post("/reservas", {})).rejects.toMatchObject({
       status: 409,

@@ -55,7 +55,9 @@ let timer: NodeJS.Timeout | null = null;
 /** Arranca el job (cada hora por defecto). */
 export function iniciarJobSuscripciones(intervaloMs = 60 * 60 * 1000) {
   if (timer) return;
-  vencerSuscripciones().catch((e) => logger.error({ err: e }, "[job] error venciendo suscripciones"));
+  vencerSuscripciones().catch((e) =>
+    logger.error({ err: e }, "[job] error venciendo suscripciones"),
+  );
   timer = setInterval(() => {
     vencerSuscripciones().catch((e) =>
       logger.error({ err: e }, "[job] error venciendo suscripciones"),

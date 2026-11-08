@@ -20,7 +20,9 @@ export async function bootstrapAdmin(): Promise<void> {
     return;
   }
   if (password.length < 10) {
-    logger.warn("bootstrap-admin: SUPERADMIN_PASSWORD debe tener al menos 10 caracteres; se omite.");
+    logger.warn(
+      "bootstrap-admin: SUPERADMIN_PASSWORD debe tener al menos 10 caracteres; se omite.",
+    );
     return;
   }
 
@@ -45,7 +47,9 @@ export async function bootstrapAdmin(): Promise<void> {
 
 // Permite ejecutarlo como script suelto: node dist/bootstrap-admin.js
 // (o localmente: tsx src/bootstrap-admin.ts). Nunca aborta el arranque.
-const esEjecutadoDirecto = process.argv[1]?.endsWith("bootstrap-admin.js") || process.argv[1]?.endsWith("bootstrap-admin.ts");
+const esEjecutadoDirecto =
+  process.argv[1]?.endsWith("bootstrap-admin.js") ||
+  process.argv[1]?.endsWith("bootstrap-admin.ts");
 if (esEjecutadoDirecto) {
   bootstrapAdmin()
     .catch((err) => {

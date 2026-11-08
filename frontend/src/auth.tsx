@@ -1,5 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, setToken, getToken, setSession, getRefreshToken, setRefreshToken, type Usuario } from "./api";
+import {
+  api,
+  setToken,
+  getToken,
+  setSession,
+  getRefreshToken,
+  setRefreshToken,
+  type Usuario,
+} from "./api";
 
 /**
  * Resultado de un intento de inicio de sesión.
@@ -99,7 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const r = await api.get<{ usuario: Usuario }>("/auth/me");
       setUsuario(r.usuario);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   return (

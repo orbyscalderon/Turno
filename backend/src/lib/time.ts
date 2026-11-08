@@ -27,12 +27,7 @@ export function toHHMM(minutes: number): string {
  * Fórmula correcta de colisión: aInicio < bFin && aFin > bInicio.
  * Se tratan como semiabiertos: una cita que termina 10:30 y otra que empieza 10:30 NO chocan.
  */
-export function seSolapan(
-  aInicio: number,
-  aFin: number,
-  bInicio: number,
-  bFin: number,
-): boolean {
+export function seSolapan(aInicio: number, aFin: number, bInicio: number, bFin: number): boolean {
   return aInicio < bFin && aFin > bInicio;
 }
 

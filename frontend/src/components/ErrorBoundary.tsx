@@ -1,7 +1,11 @@
 import { Component, type ReactNode } from "react";
 
-interface Props { children: ReactNode }
-interface State { error: Error | null }
+interface Props {
+  children: ReactNode;
+}
+interface State {
+  error: Error | null;
+}
 
 // Captura errores de render para evitar la "pantalla en blanco" y ofrecer recuperación.
 export class ErrorBoundary extends Component<Props, State> {
@@ -25,7 +29,11 @@ export class ErrorBoundary extends Component<Props, State> {
             <div style={{ fontSize: 44 }}>😵</div>
             <h1>Algo salió mal</h1>
             <p className="muted">Ocurrió un error inesperado. Puedes recargar la página.</p>
-            <button className="primary" style={{ marginTop: 12 }} onClick={() => window.location.assign("/")}>
+            <button
+              className="primary"
+              style={{ marginTop: 12 }}
+              onClick={() => window.location.assign("/")}
+            >
               Recargar
             </button>
           </div>

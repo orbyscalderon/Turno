@@ -29,7 +29,9 @@ disponibilidadRouter.put(
 
     for (const r of rangos) {
       if (toMinutes(r.horaInicio) >= toMinutes(r.horaFin)) {
-        throw BadRequest(`Rango inválido en ${r.dia}: la hora de fin debe ser mayor a la de inicio`);
+        throw BadRequest(
+          `Rango inválido en ${r.dia}: la hora de fin debe ser mayor a la de inicio`,
+        );
       }
     }
 
@@ -112,7 +114,8 @@ disponibilidadRouter.delete(
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const b = await prisma.bloqueo.findUnique({ where: { id } });
-    if (!b || b.peluqueroId !== req.user!.sub) return res.status(404).json({ error: "No encontrado" });
+    if (!b || b.peluqueroId !== req.user!.sub)
+      return res.status(404).json({ error: "No encontrado" });
     await prisma.bloqueo.delete({ where: { id } });
     res.status(204).end();
   }),

@@ -58,7 +58,8 @@ negociosRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const q = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
-    const ubicacion = typeof req.query.ubicacion === "string" ? req.query.ubicacion.trim() : undefined;
+    const ubicacion =
+      typeof req.query.ubicacion === "string" ? req.query.ubicacion.trim() : undefined;
     const categoria = typeof req.query.categoria === "string" ? req.query.categoria : undefined;
     const lat = req.query.lat !== undefined ? Number(req.query.lat) : undefined;
     const lng = req.query.lng !== undefined ? Number(req.query.lng) : undefined;

@@ -6,7 +6,16 @@ import { env } from "../config/env.js";
 import { BadRequest, Conflict, Forbidden, NotFound } from "../lib/errors.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { toMinutes, toHHMM, diaSemanaDeFecha, fechaUTC, fechaISO, horasHasta, ahoraEnZona, sumarDias } from "../lib/time.js";
+import {
+  toMinutes,
+  toHHMM,
+  diaSemanaDeFecha,
+  fechaUTC,
+  fechaISO,
+  horasHasta,
+  ahoraEnZona,
+  sumarDias,
+} from "../lib/time.js";
 import { calcularSlotsLibres, intervaloDisponible, zonaDelPeluquero } from "./slots.service.js";
 import { paymentProvider } from "./pagos.provider.js";
 import { generarCodigoValidacion } from "../lib/codes.js";
@@ -217,7 +226,10 @@ reservasRouter.post(
           (r) => inicioMin >= toMinutes(r.horaInicio) && finMin <= toMinutes(r.horaFin),
         );
         if (!dentroDeRango) {
-          throw Conflict("El horario está fuera de la disponibilidad del peluquero", "FUERA_DE_RANGO");
+          throw Conflict(
+            "El horario está fuera de la disponibilidad del peluquero",
+            "FUERA_DE_RANGO",
+          );
         }
 
         // Verificación estricta de colisión contra reservas confirmadas.
@@ -479,7 +491,11 @@ async function confirmarReservaPagada(reservaId: number): Promise<ResultadoConfi
     fecha,
     hora: actualizada.horaInicio,
   });
-  void enviarEmailSeguro({ to: reserva.peluquero.email, subject: tplPro.subject, html: tplPro.html });
+  void enviarEmailSeguro({
+    to: reserva.peluquero.email,
+    subject: tplPro.subject,
+    html: tplPro.html,
+  });
 
   // Envío AUTOMÁTICO por WhatsApp Cloud API al cliente (si WHATSAPP_PROVIDER=cloud).
   void enviarWhatsApp({
@@ -528,8 +544,7 @@ reservasRouter.post(
     if (env.paymentProvider === "mock") {
       throw Forbidden("En modo mock el pago se confirma con el endpoint autenticado /:id/pagar");
     }
-    const rawBody =
-      typeof req.rawBody === "string" ? req.rawBody : JSON.stringify(req.body ?? {});
+    const rawBody = typeof req.rawBody === "string" ? req.rawBody : JSON.stringify(req.body ?? {});
     const signature = req.headers["stripe-signature"] as string | undefined;
 
     const evento = await paymentProvider.verificarWebhook(rawBody, signature, req.headers);
@@ -595,7 +610,8 @@ reservasRouter.post(
     if (!reserva.idTransaccionPasarela) throw BadRequest("La reserva no tiene pago asociado");
 
     const captura = await paymentProvider.capturar(reserva.idTransaccionPasarela);
-    if (!captura.pagado) throw BadRequest("El pago no se completó en la pasarela", "PAGO_NO_COMPLETADO");
+    if (!captura.pagado)
+      throw BadRequest("El pago no se completó en la pasarela", "PAGO_NO_COMPLETADO");
 
     const r = await confirmarReservaPagada(id);
     res.json({ ok: true, estado: r.estado, whatsappUrl: r.whatsappUrl });
@@ -751,7 +767,10 @@ reservasRouter.get(
       valorServicios: Array.from(porMoneda.entries()).map(([moneda, total]) => ({ moneda, total })),
       // Las propinas se cobran en el local; aquí solo se reflejan las registradas
       // al cerrar la cita, así que son un mínimo, no el total real.
-      propinas: Array.from(propinasPorMoneda.entries()).map(([moneda, total]) => ({ moneda, total })),
+      propinas: Array.from(propinasPorMoneda.entries()).map(([moneda, total]) => ({
+        moneda,
+        total,
+      })),
       // Reservas pagadas con bono: no generan fianza, por eso se cuentan aparte.
       reservasConBono: conBono,
       reservas: pagadas.map((r) => ({
@@ -787,7 +806,11 @@ reservasRouter.patch(
     const dentroDeVentana = horasDeAntelacion >= env.cancelacionHorasReembolso;
 
     let reembolso: { reembolsoId: string; ok: boolean } | null = null;
-    if (dentroDeVentana && reserva.pagoReservaStatus === "pagado" && reserva.idTransaccionPasarela) {
+    if (
+      dentroDeVentana &&
+      reserva.pagoReservaStatus === "pagado" &&
+      reserva.idTransaccionPasarela
+    ) {
       reembolso = await paymentProvider.reembolsar(reserva.idTransaccionPasarela);
     }
 

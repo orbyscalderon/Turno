@@ -9,7 +9,13 @@ import { useT } from "../i18n";
 // Paso del login: canjear el desafío por la sesión
 // ---------------------------------------------------------------------------
 
-export function PasoDosFactores({ desafio, onCancelar }: { desafio: string; onCancelar: () => void }) {
+export function PasoDosFactores({
+  desafio,
+  onCancelar,
+}: {
+  desafio: string;
+  onCancelar: () => void;
+}) {
   const { verificar2fa } = useAuth();
   const { t } = useT();
   const [codigo, setCodigo] = useState("");
@@ -56,7 +62,12 @@ export function PasoDosFactores({ desafio, onCancelar }: { desafio: string; onCa
                 {error}
               </p>
             )}
-            <button className="primary" type="submit" disabled={cargando} style={{ width: "100%", marginTop: 16 }}>
+            <button
+              className="primary"
+              type="submit"
+              disabled={cargando}
+              style={{ width: "100%", marginTop: 16 }}
+            >
               {cargando ? "..." : t("twofa.verify")}
             </button>
           </form>
@@ -197,9 +208,7 @@ export function ConfigurarDosFactores({ obligatorio = false }: { obligatorio?: b
       {estado.activo ? (
         <>
           <p className="success">{t("twofa.active")}</p>
-          <p className="small muted">
-            {t("twofa.codesLeft", { n: estado.codigosRestantes })}
-          </p>
+          <p className="small muted">{t("twofa.codesLeft", { n: estado.codigosRestantes })}</p>
           <form onSubmit={desactivar} style={{ marginTop: 12 }}>
             <label htmlFor="pw-2fa">{t("twofa.passwordToDisable")}</label>
             <input

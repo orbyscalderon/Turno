@@ -27,7 +27,9 @@ export function descargarCSV(nombre: string, headers: string[], filas: (string |
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = nombre; a.click();
+  a.href = url;
+  a.download = nombre;
+  a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -54,7 +56,11 @@ export function setSession(token: string | null, refreshToken?: string | null) {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) {
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string,
+  ) {
     super(message);
   }
 }
@@ -77,12 +83,19 @@ async function intentarRefrescar(): Promise<boolean> {
         return true;
       })
       .catch(() => false)
-      .finally(() => { refreshing = null; });
+      .finally(() => {
+        refreshing = null;
+      });
   }
   return refreshing;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, _retry = false): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  _retry = false,
+): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -166,8 +179,13 @@ export interface Negocio {
 }
 
 // URL de Google Maps para un negocio (usa coords si existen, si no la dirección).
-export function mapsUrl(n: { lat?: number | null; lng?: number | null; direccion?: string }): string {
-  if (n.lat != null && n.lng != null) return `https://www.google.com/maps/search/?api=1&query=${n.lat},${n.lng}`;
+export function mapsUrl(n: {
+  lat?: number | null;
+  lng?: number | null;
+  direccion?: string;
+}): string {
+  if (n.lat != null && n.lng != null)
+    return `https://www.google.com/maps/search/?api=1&query=${n.lat},${n.lng}`;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(n.direccion ?? "")}`;
 }
 
@@ -191,16 +209,16 @@ export function categoriaLabel(value?: string): string {
 
 // Emoji + degradado de portada por categoría (para tarjetas estilo marketplace).
 const CAT_META: Record<string, { emoji: string; grad: string }> = {
-  barberia:  { emoji: "💈", grad: "linear-gradient(135deg,#1e63e6,#08090c)" },
-  peluqueria:{ emoji: "💇", grad: "linear-gradient(135deg,#2f7bff,#12131a)" },
-  estetica:  { emoji: "💆", grad: "linear-gradient(135deg,#ff3b47,#12131a)" },
-  unas:      { emoji: "💅", grad: "linear-gradient(135deg,#e11d2b,#191b22)" },
-  spa:       { emoji: "🧖", grad: "linear-gradient(135deg,#1550c0,#08090c)" },
-  masajes:   { emoji: "💆", grad: "linear-gradient(135deg,#2f7bff,#ff3b47)" },
-  tatuajes:  { emoji: "🖋️", grad: "linear-gradient(135deg,#08090c,#e11d2b)" },
-  depilacion:{ emoji: "✨", grad: "linear-gradient(135deg,#1e63e6,#ff3b47)" },
-  maquillaje:{ emoji: "💄", grad: "linear-gradient(135deg,#ff3b47,#08090c)" },
-  otro:      { emoji: "🏬", grad: "linear-gradient(135deg,#21242d,#08090c)" },
+  barberia: { emoji: "💈", grad: "linear-gradient(135deg,#1e63e6,#08090c)" },
+  peluqueria: { emoji: "💇", grad: "linear-gradient(135deg,#2f7bff,#12131a)" },
+  estetica: { emoji: "💆", grad: "linear-gradient(135deg,#ff3b47,#12131a)" },
+  unas: { emoji: "💅", grad: "linear-gradient(135deg,#e11d2b,#191b22)" },
+  spa: { emoji: "🧖", grad: "linear-gradient(135deg,#1550c0,#08090c)" },
+  masajes: { emoji: "💆", grad: "linear-gradient(135deg,#2f7bff,#ff3b47)" },
+  tatuajes: { emoji: "🖋️", grad: "linear-gradient(135deg,#08090c,#e11d2b)" },
+  depilacion: { emoji: "✨", grad: "linear-gradient(135deg,#1e63e6,#ff3b47)" },
+  maquillaje: { emoji: "💄", grad: "linear-gradient(135deg,#ff3b47,#08090c)" },
+  otro: { emoji: "🏬", grad: "linear-gradient(135deg,#21242d,#08090c)" },
 };
 export function categoriaEmoji(value?: string): string {
   return CAT_META[value ?? "otro"]?.emoji ?? "🏬";
@@ -245,7 +263,10 @@ export const MONEDAS: { value: string; label: string }[] = [
 export function formatPrecio(precio: string | number, moneda?: string): string {
   const n = Number(precio);
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: moneda || "USD" }).format(n);
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: moneda || "USD",
+    }).format(n);
   } catch {
     return `${moneda || "USD"} ${n.toFixed(2)}`;
   }

@@ -36,7 +36,10 @@ test.describe("accesibilidad", () => {
 
   test("el formulario de acceso no tiene violaciones", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /Iniciar sesión|Sign in/i }).first().click();
+    await page
+      .getByRole("button", { name: /Iniciar sesión|Sign in/i })
+      .first()
+      .click();
     await expect(page.locator('input[type="email"]')).toBeVisible();
     const violaciones = await auditar(page);
     expect(violaciones, JSON.stringify(violaciones, null, 2)).toEqual([]);
@@ -52,7 +55,10 @@ test.describe("accesibilidad", () => {
 
   test("se puede iniciar sesión usando solo el teclado", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /Iniciar sesión|Sign in/i }).first().click();
+    await page
+      .getByRole("button", { name: /Iniciar sesión|Sign in/i })
+      .first()
+      .click();
 
     // Tabulando desde el inicio se debe llegar al email, la contraseña y el envío.
     const email = page.locator('input[type="email"]');

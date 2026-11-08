@@ -24,7 +24,10 @@ import { iniciarAnalitica, evento } from "./analitica";
 
 function Footer() {
   return (
-    <footer className="container" style={{ textAlign: "center", paddingTop: 30, paddingBottom: 40 }}>
+    <footer
+      className="container"
+      style={{ textAlign: "center", paddingTop: 30, paddingBottom: 40 }}
+    >
       <div className="faint small">
         <Link href="/terminos">Términos</Link> · <Link href="/privacidad">Privacidad</Link> · ©{" "}
         {new Date().getFullYear()} Turno
@@ -246,13 +249,22 @@ export default function App() {
           <span className="small muted">{usuario.nombre}</span>
           {usuario.rol === "superadmin" && (
             <div className="lang-toggle">
-              <button className={modoSuper === "panel" ? "on" : ""} onClick={() => setModoSuper("panel")}>
+              <button
+                className={modoSuper === "panel" ? "on" : ""}
+                onClick={() => setModoSuper("panel")}
+              >
                 {t("nav.modePanel")}
               </button>
-              <button className={modoSuper === "negocio" ? "on" : ""} onClick={() => setModoSuper("negocio")}>
+              <button
+                className={modoSuper === "negocio" ? "on" : ""}
+                onClick={() => setModoSuper("negocio")}
+              >
                 {t("nav.modeBusiness")}
               </button>
-              <button className={modoSuper === "cliente" ? "on" : ""} onClick={() => setModoSuper("cliente")}>
+              <button
+                className={modoSuper === "cliente" ? "on" : ""}
+                onClick={() => setModoSuper("cliente")}
+              >
                 {t("nav.modeClient")}
               </button>
             </div>
@@ -262,7 +274,10 @@ export default function App() {
               y por tanto no era reservable. */}
           {usuario.rol === "admin_negocio" && (
             <div className="lang-toggle">
-              <button className={modoDueno === "negocio" ? "on" : ""} onClick={() => setModoDueno("negocio")}>
+              <button
+                className={modoDueno === "negocio" ? "on" : ""}
+                onClick={() => setModoDueno("negocio")}
+              >
                 {t("nav.modeBusiness")}
               </button>
               <button

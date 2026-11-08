@@ -80,7 +80,11 @@ describe("diccionario completo", () => {
   // (y exportarlo solo para el test sería ensanchar la API por comodidad).
   // En entorno jsdom import.meta.url es una URL http, no file://.
   const fuente = readFileSync(resolve(process.cwd(), "src/i18n.tsx"), "utf8");
-  const entradas = [...fuente.matchAll(/"([\w.]+)":\s*\{\s*es:\s*("(?:[^"\\]|\\.)*"),\s*en:\s*("(?:[^"\\]|\\.)*")/g)];
+  const entradas = [
+    ...fuente.matchAll(
+      /"([\w.]+)":\s*\{\s*es:\s*("(?:[^"\\]|\\.)*"),\s*en:\s*("(?:[^"\\]|\\.)*")/g,
+    ),
+  ];
 
   it("se han detectado las entradas del diccionario", () => {
     expect(entradas.length).toBeGreaterThan(100);

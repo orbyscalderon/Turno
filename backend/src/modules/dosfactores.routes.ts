@@ -44,7 +44,10 @@ dosFactoresRouter.post(
     });
     if (!usuario) throw Unauthorized("Sesión no válida");
     if (usuario.totpActivadoEn) {
-      throw BadRequest("Ya tienes el segundo factor activo. Desactívalo antes de volver a configurarlo.", "2FA_YA_ACTIVO");
+      throw BadRequest(
+        "Ya tienes el segundo factor activo. Desactívalo antes de volver a configurarlo.",
+        "2FA_YA_ACTIVO",
+      );
     }
 
     const secreto = generarSecreto();
@@ -71,12 +74,15 @@ dosFactoresRouter.post(
       where: { id: req.user!.sub },
       select: { totpSecret: true, totpActivadoEn: true },
     });
-    if (!usuario?.totpSecret) throw BadRequest("Primero empieza la configuración", "2FA_SIN_INICIAR");
+    if (!usuario?.totpSecret)
+      throw BadRequest("Primero empieza la configuración", "2FA_SIN_INICIAR");
     if (usuario.totpActivadoEn) throw BadRequest("Ya está activo", "2FA_YA_ACTIVO");
 
     const secreto = descifrarSecreto(usuario.totpSecret);
-    if (!secreto) throw BadRequest("La configuración ha caducado, vuelve a empezar", "2FA_SIN_INICIAR");
-    if (!verificarTotp(secreto, codigo)) throw BadRequest("Código incorrecto", "2FA_CODIGO_INVALIDO");
+    if (!secreto)
+      throw BadRequest("La configuración ha caducado, vuelve a empezar", "2FA_SIN_INICIAR");
+    if (!verificarTotp(secreto, codigo))
+      throw BadRequest("Código incorrecto", "2FA_CODIGO_INVALIDO");
 
     // Códigos de recuperación: se muestran UNA vez y se guardan hasheados.
     const codigos = Array.from({ length: CODIGOS_RECUPERACION }, generarCodigoRecuperacion);
@@ -105,7 +111,9 @@ dosFactoresRouter.get(
       select: { totpActivadoEn: true },
     });
     const restantes = usuario?.totpActivadoEn
-      ? await prisma.codigoRecuperacion.count({ where: { usuarioId: req.user!.sub, usadoEn: null } })
+      ? await prisma.codigoRecuperacion.count({
+          where: { usuarioId: req.user!.sub, usadoEn: null },
+        })
       : 0;
     res.json({
       activo: Boolean(usuario?.totpActivadoEn),

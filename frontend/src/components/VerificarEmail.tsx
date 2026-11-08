@@ -10,8 +10,14 @@ export function VerificarEmail({ token }: { token: string }) {
   useEffect(() => {
     api
       .post<{ mensaje: string }>("/auth/email/verificar", { token })
-      .then(() => { setEstado("ok"); setMsg("✓"); })
-      .catch((e) => { setEstado("error"); setMsg(e instanceof ApiError ? e.message : t("common.error")); });
+      .then(() => {
+        setEstado("ok");
+        setMsg("✓");
+      })
+      .catch((e) => {
+        setEstado("error");
+        setMsg(e instanceof ApiError ? e.message : t("common.error"));
+      });
   }, [token]);
 
   return (
@@ -21,7 +27,11 @@ export function VerificarEmail({ token }: { token: string }) {
         {estado === "verificando" && <p className="muted">{t("verify.verifying")}</p>}
         {estado === "ok" && <p className="success">{t("verify.done")}</p>}
         {estado === "error" && <p className="error">{msg}</p>}
-        <a href="/"><button className="primary" style={{ marginTop: 12 }}>{t("verify.goHome")}</button></a>
+        <a href="/">
+          <button className="primary" style={{ marginTop: 12 }}>
+            {t("verify.goHome")}
+          </button>
+        </a>
       </div>
     </div>
   );

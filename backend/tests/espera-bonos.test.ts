@@ -24,13 +24,15 @@ let fechaLibre = "";
 describe("lista de espera y bonos", () => {
   beforeAll(async () => {
     // Negocio de una persona: el dueño es su propio profesional.
-    const dueno = await request(app).post("/api/auth/registro").send({
-      nombre: "Dueño Espera",
-      telefono: "+34600000050",
-      email: `dueno_esp_${sufijo}@turno.test`,
-      password: "password123",
-      rol: "admin_negocio",
-    });
+    const dueno = await request(app)
+      .post("/api/auth/registro")
+      .send({
+        nombre: "Dueño Espera",
+        telefono: "+34600000050",
+        email: `dueno_esp_${sufijo}@turno.test`,
+        password: "password123",
+        rol: "admin_negocio",
+      });
     tokenDueno = dueno.body.token;
     duenoId = dueno.body.usuario.id;
     await prisma.usuario.update({
@@ -67,7 +69,15 @@ describe("lista de espera y bonos", () => {
     servicioId = servicio.id;
 
     // Disponibilidad todos los días para no depender del día de la semana.
-    const dias = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
+    const dias = [
+      "lunes",
+      "martes",
+      "miercoles",
+      "jueves",
+      "viernes",
+      "sabado",
+      "domingo",
+    ] as const;
     await prisma.disponibilidad.createMany({
       data: dias.map((dia) => ({
         peluqueroId: duenoId,
@@ -77,13 +87,15 @@ describe("lista de espera y bonos", () => {
       })),
     });
 
-    const cliente = await request(app).post("/api/auth/registro").send({
-      nombre: "Cliente Espera",
-      telefono: "+34600000052",
-      email: `cliente_esp_${sufijo}@turno.test`,
-      password: "password123",
-      rol: "cliente",
-    });
+    const cliente = await request(app)
+      .post("/api/auth/registro")
+      .send({
+        nombre: "Cliente Espera",
+        telefono: "+34600000052",
+        email: `cliente_esp_${sufijo}@turno.test`,
+        password: "password123",
+        rol: "cliente",
+      });
     tokenCliente = cliente.body.token;
     clienteId = cliente.body.usuario.id;
     await prisma.usuario.update({
@@ -117,7 +129,13 @@ describe("lista de espera y bonos", () => {
     const res = await request(app)
       .post("/api/espera")
       .set("Authorization", `Bearer ${tokenCliente}`)
-      .send({ peluqueroId: duenoId, servicioId, fecha: fechaLibre, horaDesde: "10:00", horaHasta: "14:00" });
+      .send({
+        peluqueroId: duenoId,
+        servicioId,
+        fecha: fechaLibre,
+        horaDesde: "10:00",
+        horaHasta: "14:00",
+      });
     expect(res.status).toBe(201);
     expect(res.body.espera.fecha).toBe(fechaLibre);
   });
@@ -320,7 +338,9 @@ describe("lista de espera y bonos", () => {
   });
 
   it("el cliente ve sus bonos con las sesiones restantes", async () => {
-    const res = await request(app).get("/api/bonos/mios").set("Authorization", `Bearer ${tokenCliente}`);
+    const res = await request(app)
+      .get("/api/bonos/mios")
+      .set("Authorization", `Bearer ${tokenCliente}`);
     expect(res.status).toBe(200);
     expect(res.body.bonos[0].restantes).toBe(10);
     expect(res.body.bonos[0].caducado).toBe(true);

@@ -1,6 +1,7 @@
 # 🚀 Despliegue: Railway + Supabase + Cloudflare + Backblaze B2
 
 Stack elegido:
+
 - **Supabase** → PostgreSQL gestionado
 - **Railway** → backend API (Node) con jobs siempre activos
 - **Cloudflare Pages** → frontend estático + **Cloudflare CDN** para imágenes
@@ -11,6 +12,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 1. Base de datos — Supabase
+
 1. Crea un proyecto en https://supabase.com.
 2. **Project Settings → Database → Connection string**. Copia dos:
    - **Transaction pooler** (puerto **6543**) → será `DATABASE_URL` (añade `?pgbouncer=true` al final).
@@ -22,9 +24,11 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 2. Backend — Railway
+
 1. Crea proyecto en https://railway.app → **Deploy from GitHub repo** → selecciona el repo.
 2. En el servicio, **Settings → Root Directory = `backend`** (usa el `backend/Dockerfile`).
 3. **Variables** (Settings → Variables) — pega desde `backend/.env.production.example`:
+
    ```
    DATABASE_URL   = (Supabase pooler 6543, con ?pgbouncer=true)
    DIRECT_URL     = (Supabase directa 5432)
@@ -39,6 +43,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
    STORAGE_PROVIDER = s3
    S3_ENDPOINT / S3_REGION / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY / S3_PUBLIC_URL  (paso 4)
    ```
+
    > `FRONTEND_ORIGIN` y `APP_URL` DEBEN llevar `https://`. Si pones solo el host, CORS
    > falla y los enlaces de verificación y de reset llegan roto al email. El backend se
    > niega a arrancar si detecta esto (igual que con pagos simulados o emails a consola;
@@ -56,6 +61,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 3. Frontend — Cloudflare Pages
+
 1. En Cloudflare → **Workers & Pages → Create → Pages → Connect to Git**.
 2. Configura el build:
    - **Root directory:** `frontend`
@@ -73,6 +79,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 4. Imágenes — Backblaze B2 + Cloudflare CDN
+
 1. En https://www.backblaze.com/ → crea un **bucket** (público) `turno-imagenes`.
 2. **App Keys → Add a New Application Key** (con acceso al bucket). Anota `keyID` y `applicationKey`.
 3. Del bucket, mira su **Endpoint** (p. ej. `s3.us-west-004.backblazeb2.com`) y la **región** (`us-west-004`).
@@ -94,6 +101,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 5. Dominio + HTTPS
+
 - En Cloudflare, añade tu dominio y apunta:
   - `tudominio.com` → Cloudflare Pages (frontend).
   - `api.tudominio.com` → Railway (backend) [opcional; puedes usar la URL de Railway].
@@ -104,6 +112,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## 6. Pagos y emails reales (cuando quieras cobrar)
+
 - **Stripe (backend):** `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, los **dos** secretos
   de webhook (`STRIPE_WEBHOOK_SECRET_PAGOS` y `STRIPE_WEBHOOK_SECRET_SUSCRIPCION`: Stripe
   genera uno distinto por endpoint) y los cuatro `STRIPE_PRICE_*` (plan × intervalo).
@@ -115,6 +124,7 @@ El código ya está preparado para todo esto. Sigue los pasos en orden.
 ---
 
 ## Checklist final
+
 - [ ] Supabase creado, `DATABASE_URL` + `DIRECT_URL`
 - [ ] Backend en Railway, variables puestas, migraciones aplicadas, superadmin creado
 - [ ] Frontend en Cloudflare Pages con `VITE_API_URL` y `VITE_STRIPE_PUBLISHABLE_KEY`

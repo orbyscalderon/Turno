@@ -295,21 +295,22 @@ ilegibles** y habrá que entrar con los códigos de recuperación.
   integrar `@stripe/stripe-react-native` y compilar con EAS; las notificaciones push
   necesitan además un proyecto de Expo/FCM/APNs y cuentas de desarrollador de Apple y
   Google. Nada de eso se puede preparar sin esas cuentas.
-- **Multi-sede**: *decidido el 2026-11-08 — se queda así a propósito.* Un negocio es una
+- **Multi-sede**: _decidido el 2026-11-08 — se queda así a propósito._ Un negocio es una
   dirección, y una cadena con tres locales usa tres cuentas. Funciona hoy y cada local
   mantiene su ficha, su equipo y su agenda.
 
   No se construye todavía porque las tres formas razonables de hacerlo llevan a modelos de
   datos incompatibles entre sí:
 
-  | Modelo | Qué comparten los locales | Coste |
-  |---|---|---|
-  | Cuenta por local (actual) | nada | ninguno |
-  | Sedes dentro de un negocio | suscripción, marca y ficha; equipo y horario por sede | toca huecos, agenda, analítica, límites de plan y sitemap |
-  | Organización que agrupa negocios | solo la facturación y un panel conjunto | cambio menor, pero cada local sigue con ficha propia |
+  | Modelo                           | Qué comparten los locales                             | Coste                                                     |
+  | -------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+  | Cuenta por local (actual)        | nada                                                  | ninguno                                                   |
+  | Sedes dentro de un negocio       | suscripción, marca y ficha; equipo y horario por sede | toca huecos, agenda, analítica, límites de plan y sitemap |
+  | Organización que agrupa negocios | solo la facturación y un panel conjunto               | cambio menor, pero cada local sigue con ficha propia      |
 
   Elegir mal obliga a migrar datos reales de clientes después. La decisión se toma cuando un
   negocio con varios locales diga **cómo** lo necesita, no antes.
+
 - **Pasarelas locales** (Bizum, Mercado Pago, Redsys): se añaden implementando
   `PaymentProvider` en `backend/src/modules/pagos.provider.ts`.
 - **Búsqueda por texto a gran escala**: con decenas de miles de negocios conviene añadir el

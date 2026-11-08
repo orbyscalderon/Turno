@@ -36,8 +36,9 @@ export default tseslint.config(
     },
   },
   {
-    // En la configuración de entorno y los scripts de arranque sí se usa console.
-    files: ["src/config/**", "src/bootstrap-admin.ts", "prisma/**"],
+    // En la configuración de entorno, el seed y los scripts de línea de comandos
+    // la salida por consola ES la interfaz: ahí console.log no es un olvido.
+    files: ["src/config/**", "src/bootstrap-admin.ts", "prisma/**", "scripts/**"],
     rules: { "no-console": "off" },
   },
 );

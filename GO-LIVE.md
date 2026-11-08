@@ -21,8 +21,11 @@ infraestructura**: eso es lo que cubre esta guía.
 - [ ] SMTP real con dominio verificado (SPF + DKIM)
 - [ ] Almacenamiento de imágenes en S3/R2/B2
 - [ ] `JWT_SECRET` fuerte y único
-- [ ] Primer superadmin creado
+- [ ] Primer superadmin creado **con segundo factor activado**
+- [ ] Datos reales de la empresa en `frontend/src/company.ts` (vienen de ejemplo)
 - [ ] (Recomendado) `SENTRY_DSN`
+- [ ] Sonda de caída activa (variable `API_URL` del repositorio)
+- [ ] Ensayo de restauración del backup hecho una vez
 
 ---
 
@@ -90,13 +93,18 @@ arrancar (es idempotente). O a mano: `npm run bootstrap:admin`.
    | `https://TU_API/api/reservas/webhook/pago` | `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled` | `STRIPE_WEBHOOK_SECRET_PAGOS` |
    | `https://TU_API/api/suscripcion/webhook` | `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted` | `STRIPE_WEBHOOK_SECRET_SUSCRIPCION` |
 
-5. **Billing Portal** (Settings → Billing → Customer portal): actívalo. Es lo que permite al
+5. **Impuestos** (Settings → Tax): si vendes en la UE o en cualquier
+   jurisdicción con IVA, actívalo y pon `STRIPE_TAX_ACTIVO=true`. El checkout
+   pedirá entonces la dirección y el NIF/VAT del negocio, y Stripe calculará el
+   impuesto. Con la variable en `false` la suscripción se cobra sin impuestos;
+   consulta con tu asesor qué te obliga.
+6. **Billing Portal** (Settings → Billing → Customer portal): actívalo. Es lo que permite al
    negocio cambiar de plan, actualizar la tarjeta, descargar facturas y cancelar desde su
    propio panel.
-6. **Connect** (opcional, para repartir la fianza con cada negocio): activa Connect con
+7. **Connect** (opcional, para repartir la fianza con cada negocio): activa Connect con
    cuentas **Express**. El dueño lo conecta desde su panel (*Cobros*) y la plataforma retiene
    su comisión como `application_fee`.
-7. `PAYMENT_PROVIDER=stripe`.
+8. `PAYMENT_PROVIDER=stripe`.
 
 **Probar en local:**
 
@@ -112,11 +120,24 @@ stripe listen --forward-to localhost:4000/api/suscripcion/webhook
 ### PayPal (alternativa)
 
 `PAYMENT_PROVIDER=paypal` con `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_MODE=live` y
-`PAYPAL_WEBHOOK_ID`. El flujo es por redirección (aprobar → volver → capturar) y está
-implementado de punta a punta, pero **no se ha podido verificar contra la API real** por
-falta de credenciales: pruébalo primero en *sandbox*. PayPal no tiene equivalente al
-*destination charge* de Stripe Connect, así que el reparto automático con el negocio solo
-funciona con Stripe.
+`PAYPAL_WEBHOOK_ID`. El flujo es por redirección (aprobar → volver → capturar).
+
+La lógica está cubierta por pruebas contra la API de PayPal **simulada** (crear orden,
+capturar, reembolsar y verificar la firma del webhook, con sus casos de error:
+`backend/tests/paypal.test.ts`). Lo que esas pruebas no pueden comprobar es que *tus*
+credenciales valen y que tu app tiene los permisos. Para eso, con las claves de sandbox:
+
+```bash
+cd backend
+PAYPAL_CLIENT_ID=... PAYPAL_SECRET=... PAYPAL_MODE=sandbox npm run paypal:sandbox
+```
+
+Crea una orden real de sandbox (no cobra nada), imprime el enlace de aprobación y avisa si
+falta el webhook. Ábrelo, paga con una cuenta de comprador de sandbox y comprueba que la
+reserva queda confirmada: eso cierra el circuito.
+
+PayPal no tiene equivalente al *destination charge* de Stripe Connect, así que el reparto
+automático con el negocio solo funciona con Stripe.
 
 ---
 
@@ -184,7 +205,7 @@ Alternativa en VPS: volumen persistente montado en `UPLOAD_DIR` (ver
 
 ---
 
-## 7. Backups
+## 7. Backups (y ensayo de restauración)
 
 - En proveedores gestionados (Render/Neon/Supabase): activa los backups automáticos.
 - O programa el script incluido:
@@ -192,6 +213,25 @@ Alternativa en VPS: volumen persistente montado en `UPLOAD_DIR` (ver
 ```
 0 3 * * * DATABASE_URL=postgresql://... /ruta/Turno/scripts/backup.sh /ruta/backups
 ```
+
+**Un backup que nunca se ha restaurado no es un backup.** El ensayo crea una base temporal,
+restaura el último backup en ella, comprueba que están todas las tablas, las migraciones y
+el índice que impide la doble reserva, y la borra:
+
+```bash
+DATABASE_URL=postgresql://... ./scripts/verificar-backup.sh
+```
+
+Hazlo una vez antes de abrir al público y luego una vez al mes (o en un cron semanal). Para
+una recuperación real:
+
+```bash
+./scripts/restaurar.sh backups/turno_AAAAMMDD_HHMMSS.sql.gz "postgresql://..."
+```
+
+> Los scripts limpian solos los parámetros propios de Prisma (`?schema=`, `?pgbouncer=`) de
+> la URL: `pg_dump` los rechaza y por eso el backup fallaba con la misma URL que usa la
+> aplicación.
 
 ---
 
@@ -204,7 +244,47 @@ SENTRY_TRACES_SAMPLE_RATE=0.1
 
 Sin DSN, los errores quedan solo en el log estructurado. Sondas disponibles:
 `/api/health` (comprueba la base de datos, devuelve 503 si está caída) y `/api/health/live`
-(solo proceso, para el orquestador).
+(solo proceso, para el orquestador). Ninguna de las dos cuenta para el límite de peticiones.
+
+### Aviso de caída
+
+Sentry informa de errores **mientras el proceso vive**. Si el contenedor muere, la base se
+desconecta o un despliegue deja la API caída, Sentry no dice nada. El workflow
+`.github/workflows/uptime.yml` sondea `/api/health` cada 10 minutos desde fuera y falla si
+no responde tras tres intentos; GitHub te manda un email cuando un workflow falla.
+
+Para activarlo: **Settings → Secrets and variables → Actions → Variables** del repositorio,
+variable `API_URL` con la URL pública de tu API. Sin ella el workflow no hace nada.
+
+### Prueba de carga
+
+```bash
+# Con el límite por IP levantado, para medir el servidor y no el limitador:
+cd backend && RATE_LIMIT_MAX=1000000 npm run dev
+# en otra terminal:
+CONCURRENCIA=50 DURACION=10 node scripts/carga.mjs
+```
+
+Mide req/s y p50/p95/p99 de los endpoints públicos. Referencia en un portátil con Postgres
+local: 1.100–3.800 req/s con p95 por debajo de 61 ms y 0 errores. Repítelo contra tu
+infraestructura real antes de una campaña: el cuello de botella será el plan de la base de
+datos, no el proceso de Node.
+
+---
+
+## 8 bis. Segundo factor (2FA)
+
+Cualquier cuenta puede activarlo desde el candado 🔒 de la cabecera: QR para Google
+Authenticator / Authy / 1Password, más 10 códigos de recuperación de un solo uso.
+
+En producción pon **`EXIGIR_2FA_SUPERADMIN=true`**. El superadmin ve todos los negocios,
+todos los usuarios y todos los ingresos: una contraseña sola es poca defensa. Con esa
+variable activa, un superadmin sin 2FA puede iniciar sesión (lo necesita para configurarlo)
+pero su panel queda cerrado hasta que lo active.
+
+`TOTP_CLAVE` cifra los secretos TOTP en la base de datos. Si la dejas vacía se deriva de
+`JWT_SECRET`. **Cambiarla (o rotar `JWT_SECRET` sin ella) deja los segundos factores
+ilegibles** y habrá que entrar con los códigos de recuperación.
 
 ---
 
@@ -212,7 +292,12 @@ Sin DSN, los errores quedan solo en el log estructurado. Sondas disponibles:
 
 - **App móvil**: el scaffold de Expo (`mobile/`) reserva y paga en modo `mock`; con Stripe el
   hueco se reserva y el pago se termina en la web. Para cobrar dentro de la app hay que
-  integrar `@stripe/stripe-react-native` y compilar con EAS.
+  integrar `@stripe/stripe-react-native` y compilar con EAS; las notificaciones push
+  necesitan además un proyecto de Expo/FCM/APNs y cuentas de desarrollador de Apple y
+  Google. Nada de eso se puede preparar sin esas cuentas.
+- **Multi-sede**: un negocio es una dirección. Una cadena con tres locales necesita hoy tres
+  cuentas. Hacerlo bien exige decidir primero si los locales comparten equipo, servicios,
+  suscripción y ficha pública, porque cada respuesta lleva a un modelo de datos distinto.
 - **Pasarelas locales** (Bizum, Mercado Pago, Redsys): se añaden implementando
   `PaymentProvider` en `backend/src/modules/pagos.provider.ts`.
 - **Búsqueda por texto a gran escala**: con decenas de miles de negocios conviene añadir el

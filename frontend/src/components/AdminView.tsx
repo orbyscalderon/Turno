@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError, assetUrl, descargarCSV, CATEGORIAS, TIMEZONES, zonaDelNavegador, type Negocio } from "../api";
 import { useT } from "../i18n";
 import { Stat } from "./Ui";
+import { PaquetesNegocio } from "./Bonos";
 import { MapaUbicacion } from "./MapaUbicacion";
 
 interface Miembro {
@@ -87,25 +88,27 @@ function CrearNegocio({ onCreado }: { onCreado: () => void }) {
     <div className="card">
       <h2>{t("own.createBusiness")}</h2>
       <form onSubmit={crear}>
-        <label>{t("own.commercialName")}</label>
-        <input value={form.nombreComercial} onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })} required />
-        <label>{t("own.type")}</label>
-        <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+        <label htmlFor="adminv-own-commercialname">{t("own.commercialName")}</label>
+        <input id="adminv-own-commercialname" value={form.nombreComercial} onChange={(e) => setForm({ ...form, nombreComercial: e.target.value })} required />
+        <label htmlFor="adminv-own-type">{t("own.type")}</label>
+        <select id="adminv-own-type" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
           {CATEGORIAS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
-        <label>{t("own.address")}</label>
-        <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
-        <label>{t("own.locationLabel")}</label>
+        <label htmlFor="adminv-own-address">{t("own.address")}</label>
+        <input id="adminv-own-address" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} required />
+        {/* No es una etiqueta de campo: el mapa no es un control de formulario,
+            y un <label> sin control asociado confunde al lector de pantalla. */}
+        <p className="small muted" style={{ marginBottom: 6 }}>{t("own.locationLabel")}</p>
         <MapaUbicacion lat={coords?.lat ?? null} lng={coords?.lng ?? null} onChange={(la, ln) => setCoords({ lat: la, lng: ln })} />
         <div className="row" style={{ marginTop: 6 }}>
           <button type="button" className="ghost small" onClick={usarUbicacion} disabled={ubicando}>
             📍 {ubicando ? t("own.locating") : t("own.useLocationOpt")}
           </button>
         </div>
-        <label>{t("own.phone")}</label>
-        <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
-        <label>{t("biz.timezone")}</label>
-        <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
+        <label htmlFor="adminv-own-phone">{t("own.phone")}</label>
+        <input id="adminv-own-phone" value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} required />
+        <label htmlFor="adminv-biz-timezone">{t("biz.timezone")}</label>
+        <select id="adminv-biz-timezone" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
           {(TIMEZONES.includes(form.timezone) ? TIMEZONES : [form.timezone, ...TIMEZONES]).map((tz) => (
             <option key={tz} value={tz}>{tz}</option>
           ))}
@@ -212,6 +215,7 @@ function GestionEquipo({ negocio, onVolver }: { negocio: Negocio; onVolver: () =
       <Cobros negocioId={negocio.id} />
       <Invitacion negocioId={negocio.id} />
       <Suscripcion negocioId={negocio.id} />
+      <PaquetesNegocio negocioId={negocio.id} />
       <Analitica negocioId={negocio.id} />
     </div>
   );
@@ -506,8 +510,8 @@ function Ubicacion({ negocio }: { negocio: Negocio }) {
     <div className="card">
       <h2>{t("own.locationTitle")}</h2>
       <p className="muted small">{t("own.locationHelp")}</p>
-      <label>{t("own.address")}</label>
-      <input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+      <label htmlFor="adminv-own-address-2">{t("own.address")}</label>
+      <input id="adminv-own-address-2" value={direccion} onChange={(e) => setDireccion(e.target.value)} />
 
       {/* Zona horaria: de ella dependen los huecos, la agenda y los recordatorios.
           Antes el campo existía en la base de datos pero no se usaba en ningún sitio. */}

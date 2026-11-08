@@ -12,7 +12,10 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    // Los tests de Vitest corren en Node y leen ficheros (p. ej. el diccionario
+    // de i18n), así que necesitan sus tipos. Al navegador no llega nada de esto.
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src"]
 }

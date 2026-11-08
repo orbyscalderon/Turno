@@ -11,7 +11,11 @@ export class AppError extends Error {
 }
 
 export const BadRequest = (msg: string, code?: string) => new AppError(400, msg, code);
-export const Unauthorized = (msg = "No autenticado") => new AppError(401, msg, "UNAUTHORIZED");
-export const Forbidden = (msg = "No autorizado") => new AppError(403, msg, "FORBIDDEN");
+// El código es opcional y por defecto el genérico, para que el frontend pueda
+// distinguir casos concretos (p. ej. 2FA_REQUERIDO) sin mirar el texto.
+export const Unauthorized = (msg = "No autenticado", code = "UNAUTHORIZED") =>
+  new AppError(401, msg, code);
+export const Forbidden = (msg = "No autorizado", code = "FORBIDDEN") =>
+  new AppError(403, msg, code);
 export const NotFound = (msg = "No encontrado") => new AppError(404, msg, "NOT_FOUND");
 export const Conflict = (msg: string, code?: string) => new AppError(409, msg, code);

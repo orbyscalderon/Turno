@@ -24,7 +24,7 @@ interface UsuarioAdmin { id: number; nombre: string; email: string; rol: string;
 interface SerieIngreso { dia: string; reservas: number; ingresoUsd: number; }
 interface LogItem { id: number; actorId: number | null; accion: string; detalle: string | null; createdAt: string; }
 
-type Tab = "resumen" | "usuarios" | "ingresos" | "auditoria";
+type Tab = "resumen" | "usuarios" | "ingresos" | "auditoria" | "embudo";
 
 export function SuperadminView() {
   const { t } = useT();
@@ -37,11 +37,13 @@ export function SuperadminView() {
         <button className={`tab ${tab === "usuarios" ? "active" : ""}`} onClick={() => setTab("usuarios")}>{t("sa.tabUsers")}</button>
         <button className={`tab ${tab === "ingresos" ? "active" : ""}`} onClick={() => setTab("ingresos")}>{t("sa.tabIncome")}</button>
         <button className={`tab ${tab === "auditoria" ? "active" : ""}`} onClick={() => setTab("auditoria")}>{t("sa.tabAudit")}</button>
+        <button className={`tab ${tab === "embudo" ? "active" : ""}`} onClick={() => setTab("embudo")}>{t("sa.tabFunnel")}</button>
       </div>
       {tab === "resumen" && <Resumen />}
       {tab === "usuarios" && <Usuarios />}
       {tab === "ingresos" && <Ingresos />}
       {tab === "auditoria" && <Auditoria />}
+      {tab === "embudo" && <Embudo />}
     </div>
   );
 }
@@ -175,6 +177,106 @@ function Auditoria() {
           <span className="muted small">{new Date(l.createdAt).toLocaleString()}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Embudo de conversión
+// ---------------------------------------------------------------------------
+// Responde a la única pregunta que las tablas de reservas no pueden responder:
+// de los que entran, ¿cuántos llegan a pagar y en qué paso se van?
+
+interface PasoEmbudo {
+  paso: string;
+  sesiones: number;
+  pctDesdeInicio: number;
+  pctDesdeAnterior: number;
+}
+
+const NOMBRES_PASO: Record<string, string> = {
+  landing_vista: "Entran en la web",
+  negocio_visto: "Abren un negocio",
+  servicio_elegido: "Eligen servicio",
+  slot_elegido: "Eligen hora",
+  pago_abierto: "Llegan al pago",
+  pago_completado: "Pagan",
+};
+
+function Embudo() {
+  const { t } = useT();
+  const [dias, setDias] = useState(30);
+  const [datos, setDatos] = useState<{ embudo: PasoEmbudo[]; otros: { nombre: string; sesiones: number }[] } | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ embudo: PasoEmbudo[]; otros: { nombre: string; sesiones: number }[] }>(
+        `/eventos/embudo?dias=${dias}`,
+      )
+      .then(setDatos)
+      .catch(() => setDatos(null));
+  }, [dias]);
+
+  if (!datos) return <p className="muted">{t("common.loading")}</p>;
+
+  const base = datos.embudo[0]?.sesiones ?? 0;
+
+  return (
+    <div className="card">
+      <div className="row spread">
+        <h2>{t("sa.tabFunnel")}</h2>
+        <select value={dias} onChange={(e) => setDias(Number(e.target.value))} aria-label={t("sa.funnelDays")}>
+          <option value={7}>7 d</option>
+          <option value={30}>30 d</option>
+          <option value={90}>90 d</option>
+        </select>
+      </div>
+      <p className="small muted">{t("sa.funnelHelp")}</p>
+
+      {base === 0 ? (
+        <p className="muted small">{t("sa.funnelEmpty")}</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left" }}>{t("sa.funnelStep")}</th>
+              <th style={{ textAlign: "right" }}>{t("sa.funnelSessions")}</th>
+              <th style={{ textAlign: "right" }}>%</th>
+              <th style={{ textAlign: "right" }}>{t("sa.funnelDropoff")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {datos.embudo.map((p, i) => (
+              <tr key={p.paso} style={{ borderTop: "1px solid var(--border)" }}>
+                <td>
+                  {NOMBRES_PASO[p.paso] ?? p.paso}
+                  <div
+                    style={{
+                      height: 6,
+                      borderRadius: 3,
+                      marginTop: 4,
+                      width: `${p.pctDesdeInicio}%`,
+                      minWidth: 2,
+                      background: "var(--brand-600, #6366f1)",
+                    }}
+                  />
+                </td>
+                <td style={{ textAlign: "right" }}>{p.sesiones}</td>
+                <td style={{ textAlign: "right" }}>{p.pctDesdeInicio}%</td>
+                <td style={{ textAlign: "right", color: i > 0 && p.pctDesdeAnterior < 50 ? "var(--danger, #ef4444)" : undefined }}>
+                  {i === 0 ? "—" : `-${(100 - p.pctDesdeAnterior).toFixed(1)}%`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {datos.otros.length > 0 && (
+        <p className="small muted" style={{ marginTop: 12 }}>
+          {datos.otros.map((o) => `${o.nombre}: ${o.sesiones}`).join(" · ")}
+        </p>
+      )}
     </div>
   );
 }

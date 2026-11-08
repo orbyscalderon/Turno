@@ -276,6 +276,9 @@ export interface Reserva {
   // Quién canceló y por qué (el cliente merece saberlo).
   canceladaPor?: "cliente" | "negocio" | "sistema" | null;
   motivoCancelacion?: string | null;
+  // Propina anotada al cerrar la cita y pago con bono prepagado.
+  propina?: string | number | null;
+  bonoId?: number | null;
 }
 
 /** Datos que devuelve la API para completar el cobro de la fianza. */
@@ -294,7 +297,10 @@ export interface DatosPago {
 
 export interface RespuestaReserva {
   reserva: Reserva & { timezone?: string; negocio?: string };
-  pago: DatosPago;
+  // null cuando la reserva se paga con un bono prepagado: no hay fianza que cobrar.
+  pago: DatosPago | null;
+  bono?: { id: number; usado: boolean };
+  whatsappUrl?: string | null;
 }
 
 /** Paginación estándar que devuelve la API. */

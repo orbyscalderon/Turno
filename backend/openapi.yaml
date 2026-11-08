@@ -44,6 +44,10 @@ tags:
   - name: Cobros (Connect)
   - name: Subidas
   - name: Superadmin
+  - name: Segundo factor
+  - name: Lista de espera
+  - name: Bonos
+  - name: Analitica
 
 components:
   securitySchemes:
@@ -1152,3 +1156,287 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200": { description: Número de suscripciones vencidas }
+
+  # ---------------------------------------------------------------- #
+  # Segundo factor (TOTP)
+  # ---------------------------------------------------------------- #
+  /api/auth/2fa/verificar:
+    post:
+      tags: [Segundo factor]
+      summary: Canjear el desafio del login por una sesion
+      description: >
+        Segundo paso del inicio de sesion. Si la cuenta tiene 2FA activo,
+        POST /api/auth/login NO devuelve sesion: devuelve requiere2fa=true y un
+        desafio de 5 minutos que se canjea aqui con el codigo del movil o con un
+        codigo de recuperacion (de un solo uso).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desafio, codigo]
+              properties:
+                desafio: { type: string }
+                codigo: { type: string, example: "123456" }
+      responses:
+        "200": { description: Sesion emitida (token + refreshToken) }
+        "401": { description: Codigo incorrecto o desafio caducado }
+  /api/auth/2fa/estado:
+    get:
+      tags: [Segundo factor]
+      summary: Estado del segundo factor de la cuenta
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: "activo, activadoEn, codigosRestantes" }
+  /api/auth/2fa/iniciar:
+    post:
+      tags: [Segundo factor]
+      summary: Generar secreto y QR (no lo activa todavia)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: "secreto, uri y qr (data URI PNG)" }
+        "400": { description: Ya estaba activo }
+  /api/auth/2fa/activar:
+    post:
+      tags: [Segundo factor]
+      summary: Confirmar con un codigo real y activar
+      description: Devuelve los 10 codigos de recuperacion UNA sola vez.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo]
+              properties:
+                codigo: { type: string }
+      responses:
+        "200": { description: "activo=true y codigosRecuperacion" }
+        "400": { description: Codigo incorrecto o configuracion no iniciada }
+  /api/auth/2fa/desactivar:
+    post:
+      tags: [Segundo factor]
+      summary: Desactivar (exige la contrasena)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "200": { description: Desactivado }
+        "401": { description: Contrasena incorrecta }
+        "403": { description: La instalacion lo exige para superadmin }
+  /api/auth/2fa/recuperacion/regenerar:
+    post:
+      tags: [Segundo factor]
+      summary: Regenerar los codigos de recuperacion
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Nuevos codigos (los anteriores dejan de valer) }
+
+  # ---------------------------------------------------------------- #
+  # Lista de espera
+  # ---------------------------------------------------------------- #
+  /api/espera:
+    post:
+      tags: [Lista de espera]
+      summary: Apuntarse a la lista de espera de un dia
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [peluqueroId, servicioId, fecha]
+              properties:
+                peluqueroId: { type: integer }
+                servicioId: { type: integer }
+                fecha: { type: string, format: date }
+                horaDesde: { type: string, example: "10:00" }
+                horaHasta: { type: string, example: "14:00" }
+      responses:
+        "201": { description: Apuntado (volver a apuntarse reinicia el aviso) }
+        "400": { description: Fecha pasada, fuera de horizonte o franja incompleta }
+        "409": { description: Demasiadas listas activas }
+  /api/espera/mias:
+    get:
+      tags: [Lista de espera]
+      summary: Mis listas de espera activas
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listas con su estado de aviso }
+  /api/espera/cola:
+    get:
+      tags: [Lista de espera]
+      summary: Cola de un profesional en un dia (negocio)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: peluqueroId, required: true, schema: { type: integer } }
+        - { in: query, name: fecha, required: true, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Clientes esperando, en orden de llegada }
+        "403": { description: Ese profesional no es de tu negocio }
+  /api/espera/{id}:
+    delete:
+      tags: [Lista de espera]
+      summary: Salir de una lista de espera
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Fuera de la lista }
+        "403": { description: No es tu lista }
+
+  # ---------------------------------------------------------------- #
+  # Bonos y paquetes de sesiones
+  # ---------------------------------------------------------------- #
+  /api/bonos/paquetes:
+    get:
+      tags: [Bonos]
+      summary: Paquetes activos de un negocio
+      parameters:
+        - { in: query, name: negocioId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Paquetes con su servicio }
+    post:
+      tags: [Bonos]
+      summary: Crear un paquete de sesiones
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [negocioId, servicioId, nombre, sesiones, precio]
+              properties:
+                negocioId: { type: string }
+                servicioId: { type: integer }
+                nombre: { type: string, example: "10 cortes" }
+                sesiones: { type: integer, minimum: 2, maximum: 100 }
+                precio: { type: number }
+                moneda: { type: string, example: EUR }
+                validezDias: { type: integer, nullable: true }
+      responses:
+        "201": { description: Paquete creado }
+        "400": { description: El servicio no es de tu equipo }
+  /api/bonos/paquetes/{id}:
+    patch:
+      tags: [Bonos]
+      summary: Editar o desactivar un paquete
+      description: Las sesiones no se pueden cambiar, alteraria bonos ya vendidos.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Paquete actualizado }
+  /api/bonos/emitir:
+    post:
+      tags: [Bonos]
+      summary: Registrar un bono a un cliente
+      description: >
+        El dinero se cobra EN EL LOCAL; esto solo registra las sesiones. El
+        cliente debe tener cuenta para poder usarlo al reservar.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paqueteId, clienteEmail]
+              properties:
+                paqueteId: { type: integer }
+                clienteEmail: { type: string, format: email }
+      responses:
+        "201": { description: Bono registrado y email enviado al cliente }
+        "400": { description: Ese email no tiene cuenta (CLIENTE_SIN_CUENTA) }
+  /api/bonos/mios:
+    get:
+      tags: [Bonos]
+      summary: Mis bonos con las sesiones restantes
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Bonos con restantes, caducado y agotado }
+  /api/bonos/negocio/{negocioId}:
+    get:
+      tags: [Bonos]
+      summary: Bonos vendidos por el negocio y su consumo
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: negocioId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Resumen (vendidos, sesiones, ingresos) y detalle }
+
+  # ---------------------------------------------------------------- #
+  # Analitica de producto
+  # ---------------------------------------------------------------- #
+  /api/eventos:
+    post:
+      tags: [Analitica]
+      summary: Registrar un lote de eventos del embudo
+      description: >
+        Publico (la sesion es opcional: el embudo empieza antes de registrarse).
+        Los eventos se guardan en la base de datos del propio proyecto, no se
+        envian a terceros. El nombre debe estar en el catalogo cerrado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventos]
+              properties:
+                eventos:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [nombre, sesion]
+                    properties:
+                      nombre:
+                        type: string
+                        enum:
+                          - landing_vista
+                          - busqueda_realizada
+                          - negocio_visto
+                          - profesional_elegido
+                          - servicio_elegido
+                          - slots_vistos
+                          - slot_elegido
+                          - reserva_iniciada
+                          - pago_abierto
+                          - pago_completado
+                          - pago_fallido
+                          - registro_completado
+                          - login_completado
+                          - espera_apuntada
+                          - resena_enviada
+                      sesion:
+                        type: string
+                        description: Identificador anonimo del navegador (no es PII)
+                      ruta: { type: string }
+                      meta: { type: object }
+      responses:
+        "202": { description: Eventos aceptados }
+        "400": { description: Nombre fuera del catalogo o lote/metadatos demasiado grandes }
+  /api/eventos/embudo:
+    get:
+      tags: [Analitica]
+      summary: Embudo de conversion (solo superadmin)
+      description: Cuenta SESIONES distintas por paso, no eventos.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: dias, schema: { type: integer, default: 30, maximum: 365 } }
+      responses:
+        "200": { description: Pasos con sesiones y porcentaje de conversion y abandono }
+        "403": { description: Requiere superadmin }

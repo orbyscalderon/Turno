@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./auth";
 import { useT, type TKey } from "./i18n";
 import { Login } from "./components/Login";
@@ -19,6 +19,8 @@ import { NegocioPublico } from "./components/NegocioPublico";
 import { RetornoPayPal } from "./components/PagoFianza";
 import { COMPANY } from "./company";
 import { Link, navegar, useRuta } from "./router";
+import { ConfigurarDosFactores } from "./components/DosFactores";
+import { iniciarAnalitica, evento } from "./analitica";
 
 function Footer() {
   return (
@@ -48,8 +50,12 @@ function Header({ children }: { children?: React.ReactNode }) {
   );
 }
 
+// Se arranca una sola vez, fuera del ciclo de React: engancha el vaciado de la
+// cola de eventos al cerrar la pestaña.
+iniciarAnalitica();
+
 export default function App() {
-  const { usuario, cargando, logout } = useAuth();
+  const { usuario, cargando, logout, debeActivar2fa } = useAuth();
   const { t } = useT();
   // Ruta reactiva: la navegación interna ya no recarga la aplicación entera.
   const { path } = useRuta();
@@ -60,6 +66,13 @@ export default function App() {
   // El dueño alterna entre la gestión del negocio y su propia ficha de profesional
   // (servicios y horarios): como dueño también es reservable.
   const [modoDueno, setModoDueno] = useState<"negocio" | "profesional">("negocio");
+  // Panel de seguridad de la propia cuenta (segundo factor).
+  const [verSeguridad, setVerSeguridad] = useState(false);
+
+  // Primera vista de la sesión: el inicio del embudo.
+  useEffect(() => {
+    evento("landing_vista");
+  }, []);
 
   // --- Rutas públicas que no dependen de la sesión ---
   const resetMatch = path.match(/^\/reset\/(.+)$/);
@@ -261,6 +274,14 @@ export default function App() {
               </button>
             </div>
           )}
+          <button
+            className="ghost small"
+            onClick={() => setVerSeguridad((v) => !v)}
+            aria-expanded={verSeguridad}
+            title={t("twofa.settingsTitle")}
+          >
+            🔒
+          </button>
           <button className="ghost small" onClick={logout}>
             {t("nav.logout")}
           </button>
@@ -268,6 +289,19 @@ export default function App() {
       </Header>
 
       <AccountBar />
+
+      {/* Un superadmin sin segundo factor no puede usar su panel: el aviso va
+          arriba y con el panel de configuración ya abierto. */}
+      {debeActivar2fa && (
+        <div className="container">
+          <ConfigurarDosFactores obligatorio />
+        </div>
+      )}
+      {verSeguridad && !debeActivar2fa && (
+        <div className="container">
+          <ConfigurarDosFactores />
+        </div>
+      )}
 
       {usuario.rol === "cliente" && <ClienteView />}
       {usuario.rol === "peluquero" && <PeluqueroView />}

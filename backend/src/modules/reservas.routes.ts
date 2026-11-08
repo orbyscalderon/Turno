@@ -20,6 +20,7 @@ import {
   emailCitaCompletada,
 } from "../lib/email.js";
 import { lockAgenda } from "../lib/locks.js";
+import { avisarListaEspera } from "../lib/espera.js";
 import { marcarEventoNuevo } from "../lib/webhooks.js";
 import { filtroNegocioVigente } from "../lib/suscripcion.js";
 import { auditar } from "../lib/audit.js";
@@ -246,9 +247,39 @@ reservasRouter.post(
           throw Conflict("Ese horario no está disponible (reservado o bloqueado)", "SLOT_OCUPADO");
         }
 
+        // ¿Tiene un bono prepagado para este servicio? Entonces no hay fianza:
+        // el cliente ya pagó el paquete en el local y aquí solo se descuenta
+        // una sesión. Se elige el que caduca antes para no desperdiciarlo.
+        const bono = await tx.bonoCliente.findFirst({
+          where: {
+            clienteId,
+            paquete: { servicioId: data.servicioId, activo: true },
+            OR: [{ expiraEn: null }, { expiraEn: { gt: new Date() } }],
+          },
+          orderBy: [{ expiraEn: "asc" }, { createdAt: "asc" }],
+          select: { id: true, sesionesTotales: true, sesionesUsadas: true },
+        });
+        const bonoUtil = bono && bono.sesionesUsadas < bono.sesionesTotales ? bono : null;
+
+        if (bonoUtil) {
+          // Incremento condicional: si dos reservas simultáneas intentaran gastar
+          // la última sesión, solo una vería count=1.
+          const gastado = await tx.bonoCliente.updateMany({
+            where: { id: bonoUtil.id, sesionesUsadas: bonoUtil.sesionesUsadas },
+            data: { sesionesUsadas: { increment: 1 } },
+          });
+          if (gastado.count !== 1) {
+            throw Conflict("El bono se ha actualizado, vuelve a intentarlo", "BONO_EN_USO");
+          }
+        }
+
         // Se crea CONFIRMADA para bloquear el slot de inmediato, pero con pago pendiente.
         // Si el pago no llega antes de expiraPagoEn, el job de expiración libera el slot.
-        const expiraPagoEn = new Date(Date.now() + env.reservaHoldMinutos * 60 * 1000);
+        // Con bono no hay hold: expiraPagoEn queda a null para que el job de
+        // expiración no pueda cancelarla (la sesión ya está descontada).
+        const expiraPagoEn = bonoUtil
+          ? null
+          : new Date(Date.now() + env.reservaHoldMinutos * 60 * 1000);
         const nueva = await tx.reservacion.create({
           data: {
             clienteId,
@@ -260,10 +291,11 @@ reservasRouter.post(
             estadoCita: "confirmada",
             pagoReservaStatus: "pendiente",
             expiraPagoEn,
+            bonoId: bonoUtil?.id ?? null,
             codigoValidacion: generarCodigoValidacion(),
           },
         });
-        return { nueva, expiraPagoEn };
+        return { nueva, expiraPagoEn, bonoId: bonoUtil?.id ?? null };
       });
     } catch (e) {
       // El índice único de BD es la última red: si salta, el slot se ocupó a la vez.
@@ -273,7 +305,30 @@ reservasRouter.post(
       throw e;
     }
 
-    const { nueva: reserva, expiraPagoEn } = resultadoTx;
+    const { nueva: reserva, expiraPagoEn, bonoId } = resultadoTx;
+
+    // Pagada con bono: no se crea intento de pago. Se confirma ya mismo, que
+    // envía los emails y el WhatsApp igual que un pago normal.
+    if (bonoId) {
+      const confirmada = await confirmarReservaPagada(reserva.id);
+      return res.status(201).json({
+        reserva: {
+          id: reserva.id,
+          fecha: data.fecha,
+          horaInicio: reserva.horaInicio,
+          horaFin: reserva.horaFin,
+          estadoCita: "confirmada",
+          pagoReservaStatus: "pagado",
+          codigoValidacion: reserva.codigoValidacion,
+          expiraPagoEn: null,
+          timezone: tz,
+          negocio: negocio.nombreComercial,
+        },
+        pago: null,
+        bono: { id: bonoId, usado: true },
+        whatsappUrl: confirmada.whatsappUrl,
+      });
+    }
 
     // Split de la fianza (contando la comisión real de Stripe): si el negocio tiene cobros
     // activos (Stripe Connect), su parte va a su cuenta y la plataforma retiene el application fee.
@@ -672,9 +727,18 @@ reservasRouter.get(
 
     // Valor de servicios generado, agrupado por moneda.
     const porMoneda = new Map<string, number>();
+    const propinasPorMoneda = new Map<string, number>();
+    let conBono = 0;
     for (const r of pagadas) {
       const m = r.servicio.moneda || "USD";
       porMoneda.set(m, Number(((porMoneda.get(m) ?? 0) + Number(r.servicio.precio)).toFixed(2)));
+      if (r.propina) {
+        propinasPorMoneda.set(
+          m,
+          Number(((propinasPorMoneda.get(m) ?? 0) + Number(r.propina)).toFixed(2)),
+        );
+      }
+      if (r.bonoId) conBono++;
     }
 
     res.json({
@@ -685,12 +749,19 @@ reservasRouter.get(
       fianzaNegocioUsd: Number((pagadas.length * split.alNegocioUsd).toFixed(2)),
       fianzaPorReservaUsd: split.alNegocioUsd,
       valorServicios: Array.from(porMoneda.entries()).map(([moneda, total]) => ({ moneda, total })),
+      // Las propinas se cobran en el local; aquí solo se reflejan las registradas
+      // al cerrar la cita, así que son un mínimo, no el total real.
+      propinas: Array.from(propinasPorMoneda.entries()).map(([moneda, total]) => ({ moneda, total })),
+      // Reservas pagadas con bono: no generan fianza, por eso se cuentan aparte.
+      reservasConBono: conBono,
       reservas: pagadas.map((r) => ({
         id: r.id,
         fecha: fechaISO(r.fecha),
         servicio: r.servicio.nombreServicio,
         precio: r.servicio.precio,
         moneda: r.servicio.moneda,
+        propina: r.propina,
+        conBono: Boolean(r.bonoId),
       })),
     });
   }),
@@ -731,14 +802,36 @@ reservasRouter.patch(
           : {}),
       },
     });
+
+    // Si se pagó con bono, la sesión vuelve al cliente cuando cancela con la
+    // antelación pactada. Fuera de plazo se pierde, igual que la fianza.
+    let sesionDevuelta = false;
+    if (reserva.bonoId && dentroDeVentana) {
+      const devuelta = await prisma.bonoCliente.updateMany({
+        where: { id: reserva.bonoId, sesionesUsadas: { gt: 0 } },
+        data: { sesionesUsadas: { decrement: 1 } },
+      });
+      sesionDevuelta = devuelta.count === 1;
+    }
+
     await auditar(
       req.user!.sub,
       "reserva_cancelada_cliente",
-      `reserva=${id} reembolso=${reembolso?.ok ?? false}`,
+      `reserva=${id} reembolso=${reembolso?.ok ?? false} bono_devuelto=${sesionDevuelta}`,
     );
+
+    // El hueco vuelve a estar libre: avisa a la lista de espera de ese día.
+    void avisarListaEspera({
+      peluqueroId: reserva.peluqueroId,
+      fecha: reserva.fecha,
+      horaInicio: reserva.horaInicio,
+      horaFin: reserva.horaFin,
+      tz,
+    });
     res.json({
       reserva: { ...actualizada, fecha: fechaISO(actualizada.fecha) },
       reembolsado: reembolso?.ok ?? false,
+      sesionBonoDevuelta: sesionDevuelta,
       politica: dentroDeVentana
         ? undefined
         : `Sin reembolso: se requiere cancelar con al menos ${env.cancelacionHorasReembolso}h de antelación`,
@@ -852,7 +945,7 @@ reservasRouter.patch(
 // ===========================================================================
 
 /** Cierra una cita: la marca completada y pide reseña al cliente. */
-async function cerrarCita(reservaId: number, actorId: number) {
+async function cerrarCita(reservaId: number, actorId: number, propina?: number) {
   const reserva = await prisma.reservacion.findUnique({
     where: { id: reservaId },
     include: {
@@ -882,9 +975,19 @@ async function cerrarCita(reservaId: number, actorId: number) {
 
   const actualizada = await prisma.reservacion.update({
     where: { id: reservaId },
-    data: { estadoCita: "completada", completadaEn: new Date() },
+    data: {
+      estadoCita: "completada",
+      completadaEn: new Date(),
+      // La propina se entrega en el local (la plataforma solo cobra la fianza):
+      // se registra para que aparezca en los ingresos del profesional.
+      ...(propina !== undefined ? { propina } : {}),
+    },
   });
-  await auditar(actorId, "cita_completada", `reserva=${reservaId}`);
+  await auditar(
+    actorId,
+    "cita_completada",
+    `reserva=${reservaId}${propina ? ` propina=${propina}` : ""}`,
+  );
 
   // Invitación a reseñar: cierra el circuito de reputación del negocio.
   const tpl = emailCitaCompletada({
@@ -904,8 +1007,11 @@ reservasRouter.post(
   requireAuth,
   requireRole(...ROLES_NEGOCIO),
   asyncHandler(async (req, res) => {
-    const { codigo } = z
-      .object({ codigo: z.string().trim().min(4).max(12) })
+    const { codigo, propina } = z
+      .object({
+        codigo: z.string().trim().min(4).max(12),
+        propina: z.number().nonnegative().max(10_000).optional(),
+      })
       .parse(req.body);
 
     const reserva = await prisma.reservacion.findUnique({
@@ -918,7 +1024,7 @@ reservasRouter.post(
     if (!reserva) throw NotFound("Código no válido");
     await assertGestorDeCita(reserva, req.user!);
 
-    const { yaCompletada } = await cerrarCita(reserva.id, req.user!.sub);
+    const { yaCompletada } = await cerrarCita(reserva.id, req.user!.sub, propina);
 
     res.json({
       ok: true,
@@ -942,10 +1048,13 @@ reservasRouter.patch(
   requireRole(...ROLES_NEGOCIO),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    const { propina } = z
+      .object({ propina: z.number().nonnegative().max(10_000).optional() })
+      .parse(req.body ?? {});
     const reserva = await prisma.reservacion.findUnique({ where: { id } });
     if (!reserva) throw NotFound("Reserva no encontrada");
     await assertGestorDeCita(reserva, req.user!);
-    const { yaCompletada } = await cerrarCita(id, req.user!.sub);
+    const { yaCompletada } = await cerrarCita(id, req.user!.sub, propina);
     res.json({ ok: true, yaCompletada, estadoCita: "completada" });
   }),
 );
@@ -1017,6 +1126,15 @@ reservasRouter.patch(
       },
     });
 
+    // Cancela el negocio: la sesión del bono SIEMPRE se devuelve, sin importar
+    // la antelación. No es culpa del cliente.
+    if (reserva.bonoId) {
+      await prisma.bonoCliente.updateMany({
+        where: { id: reserva.bonoId, sesionesUsadas: { gt: 0 } },
+        data: { sesionesUsadas: { decrement: 1 } },
+      });
+    }
+
     const tpl = emailCancelacionNegocio({
       nombre: reserva.cliente.nombre,
       profesional: reserva.peluquero.nombre,
@@ -1027,6 +1145,14 @@ reservasRouter.patch(
       reembolsado: reembolso?.ok ?? false,
     });
     void enviarEmailSeguro({ to: reserva.cliente.email, subject: tpl.subject, html: tpl.html });
+
+    void avisarListaEspera({
+      peluqueroId: reserva.peluqueroId,
+      fecha: reserva.fecha,
+      horaInicio: reserva.horaInicio,
+      horaFin: reserva.horaFin,
+      tz: await zonaDelPeluquero(reserva.peluqueroId),
+    });
 
     await auditar(
       req.user!.sub,

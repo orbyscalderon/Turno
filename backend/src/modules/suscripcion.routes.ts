@@ -129,6 +129,20 @@ suscripcionRouter.post(
       client_reference_id: negocioId,
       metadata: { negocioId, plan, intervalo },
       subscription_data: { metadata: { negocioId, plan, intervalo } },
+      // Impuestos (IVA y equivalentes) calculados por Stripe Tax según la
+      // dirección del negocio. Hay que activarlo también en el panel de Stripe.
+      // Sin esto se factura sin impuestos, que es lo que había antes.
+      ...(env.stripeTaxActivo
+        ? {
+            automatic_tax: { enabled: true },
+            // Para calcular el impuesto Stripe necesita la dirección, y para
+            // facturar a empresas, su NIF/VAT (con inversión del sujeto pasivo
+            // cuando corresponda).
+            billing_address_collection: "required" as const,
+            tax_id_collection: { enabled: true },
+            customer_update: { address: "auto" as const, name: "auto" as const },
+          }
+        : {}),
     });
 
     res.json({ modo: "stripe", checkoutUrl: session.url });

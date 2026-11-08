@@ -104,6 +104,39 @@ const schema = z.object({
   // Segundo recordatorio, pocas horas antes de la cita (0 = desactivado).
   RECORDATORIO_CORTO_HORAS: z.coerce.number().int().min(0).default(3),
 
+  // ---------- Segundo factor (2FA) ----------
+  // Clave para cifrar los secretos TOTP en reposo. Vacía = se deriva de JWT_SECRET.
+  // Rotarla deja los segundos factores ilegibles: se entra con los códigos de recuperación.
+  TOTP_CLAVE: z.string().default(""),
+  // Exigir 2FA a los superadmin. El panel de superadmin ve todos los negocios,
+  // todos los usuarios y todos los ingresos: con esto en false, una sola
+  // contraseña es lo único que lo protege.
+  EXIGIR_2FA_SUPERADMIN: booleano("false"),
+
+  // ---------- Impuestos de la suscripción ----------
+  // Delega el cálculo del IVA/impuestos de la suscripción en Stripe Tax.
+  // Hay que activarlo también en el panel de Stripe (Settings -> Tax).
+  STRIPE_TAX_ACTIVO: booleano("false"),
+
+  // ---------- Lista de espera ----------
+  // Cuántos clientes de la cola se avisan por cada hueco que se libera. Avisar a
+  // uno solo deja el hueco muerto si no contesta; avisar a todos es spam.
+  ESPERA_AVISOS_POR_HUECO: z.coerce.number().int().min(1).default(3),
+
+  // ---------- Analítica de producto ----------
+  // Eventos propios del embudo. Se guardan en la base de datos del proyecto:
+  // no se envía nada a terceros, así que no hace falta consentimiento extra.
+  ANALITICA_ACTIVA: booleano("true"),
+  EVENTOS_RETENCION_DIAS: z.coerce.number().int().min(1).default(90),
+
+  // ---------- Límites de peticiones ----------
+  // Por IP. Subirlo mucho abre la puerta al abuso; bajarlo deja sin servicio a
+  // quien comparte salida a internet con más gente.
+  RATE_LIMIT_MAX: z.coerce.number().int().min(60).default(1000),
+  RATE_LIMIT_VENTANA_MIN: z.coerce.number().int().min(1).default(15),
+  // Login/registro/reset: estricto, es la defensa contra la fuerza bruta.
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().min(5).default(30),
+
   // ---------- Observabilidad ----------
   // Vacío = Sentry desactivado (los errores solo van al log estructurado).
   SENTRY_DSN: z.string().default(""),
@@ -185,6 +218,16 @@ if (e.NODE_ENV === "production") {
     avisos.push("EXIGIR_EMAIL_VERIFICADO=false: se puede reservar sin confirmar el email");
   }
   if (!e.SENTRY_DSN) avisos.push("SENTRY_DSN vacío: los errores 500 solo quedarán en el log");
+  if (!e.EXIGIR_2FA_SUPERADMIN) {
+    avisos.push(
+      "EXIGIR_2FA_SUPERADMIN=false: el panel de superadmin solo está protegido por contraseña",
+    );
+  }
+  if (e.PAYMENT_PROVIDER === "stripe" && !e.STRIPE_TAX_ACTIVO) {
+    avisos.push(
+      "STRIPE_TAX_ACTIVO=false: la suscripción se cobra sin impuestos. Comprueba si te obliga tu jurisdicción",
+    );
+  }
 
   for (const m of avisos) console.warn(`⚠️  ${m}`);
   if (errores.length) {
@@ -260,6 +303,15 @@ export const env = {
   antelacionMinimaHoras: e.ANTELACION_MINIMA_HORAS,
   horizonteReservaDias: e.HORIZONTE_RESERVA_DIAS,
   recordatorioCortoHoras: e.RECORDATORIO_CORTO_HORAS,
+  rateLimitMax: e.RATE_LIMIT_MAX,
+  rateLimitVentanaMin: e.RATE_LIMIT_VENTANA_MIN,
+  rateLimitAuthMax: e.RATE_LIMIT_AUTH_MAX,
+  totpClave: e.TOTP_CLAVE,
+  exigir2faSuperadmin: e.EXIGIR_2FA_SUPERADMIN,
+  stripeTaxActivo: e.STRIPE_TAX_ACTIVO,
+  esperaAvisosPorHueco: e.ESPERA_AVISOS_POR_HUECO,
+  analiticaActiva: e.ANALITICA_ACTIVA,
+  eventosRetencionDias: e.EVENTOS_RETENCION_DIAS,
   sentryDsn: e.SENTRY_DSN,
   sentryTracesSampleRate: e.SENTRY_TRACES_SAMPLE_RATE,
   permitirModoDemo: e.PERMITIR_MODO_DEMO,

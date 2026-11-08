@@ -14,8 +14,20 @@ export function iniciarMonitor(): void {
     dsn: env.sentryDsn,
     environment: env.nodeEnv,
     tracesSampleRate: env.sentryTracesSampleRate,
-    // No enviamos cuerpos de peticiones ni cookies: pueden contener contraseñas.
-    sendDefaultPii: false,
+    // Nada de datos personales a un tercero. Sentry 11 sustituyó el antiguo
+    // `sendDefaultPii: false` por este bloque granular, así que aquí queda
+    // explícito qué NO sale del servidor: cuerpos (contraseñas, tarjetas),
+    // cabeceras y cookies (tokens de sesión), query params (tokens de reset),
+    // datos del usuario y variables locales de la pila.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      stackFrameVariables: false,
+    },
   });
   activo = true;
   logger.info("Sentry inicializado");

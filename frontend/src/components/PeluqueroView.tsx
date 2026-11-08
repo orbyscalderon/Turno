@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api, ApiError, assetUrl, formatPrecio, descargarCSV, MONEDAS, type Servicio, type Negocio } from "../api";
 import { useT } from "../i18n";
 import { Empty, Stat } from "./Ui";
+import { ColaEspera } from "./ListaEspera";
+import { useAuth } from "../auth";
 
 const DIAS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 type Dia = (typeof DIAS)[number];
@@ -132,20 +134,20 @@ function Bloqueos() {
         <h2>{t("pro.blockTitle")}</h2>
         <p className="muted small">{t("pro.blockHelp")}</p>
         <form onSubmit={crear}>
-          <label>{t("pro.date")}</label>
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
+          <label htmlFor="peluqu-pro-date">{t("pro.date")}</label>
+          <input id="peluqu-pro-date" type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
           <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
             <input type="checkbox" style={{ width: "auto" }} checked={form.todoElDia} onChange={(e) => setForm({ ...form, todoElDia: e.target.checked })} />
             {t("pro.allDay")}
           </label>
           {!form.todoElDia && (
             <div className="row">
-              <div style={{ flex: 1 }}><label>{t("pro.from")}</label><input type="time" value={form.horaInicio} onChange={(e) => setForm({ ...form, horaInicio: e.target.value })} /></div>
-              <div style={{ flex: 1 }}><label>{t("pro.to")}</label><input type="time" value={form.horaFin} onChange={(e) => setForm({ ...form, horaFin: e.target.value })} /></div>
+              <div style={{ flex: 1 }}><label htmlFor="peluqu-pro-from">{t("pro.from")}</label><input id="peluqu-pro-from" type="time" value={form.horaInicio} onChange={(e) => setForm({ ...form, horaInicio: e.target.value })} /></div>
+              <div style={{ flex: 1 }}><label htmlFor="peluqu-pro-to">{t("pro.to")}</label><input id="peluqu-pro-to" type="time" value={form.horaFin} onChange={(e) => setForm({ ...form, horaFin: e.target.value })} /></div>
             </div>
           )}
-          <label>{t("pro.reason")}</label>
-          <input value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} />
+          <label htmlFor="peluqu-pro-reason">{t("pro.reason")}</label>
+          <input id="peluqu-pro-reason" value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} />
           {error && <p className="error">{error}</p>}
           <button className="primary" style={{ marginTop: 12 }}>{t("pro.addBlock")}</button>
         </form>
@@ -233,22 +235,22 @@ function Servicios() {
       <div className="card">
         <h2>{t("pro.newService")}</h2>
         <form onSubmit={crear}>
-          <label>{t("pro.name")}</label>
-          <input value={form.nombreServicio} onChange={(e) => setForm({ ...form, nombreServicio: e.target.value })} required />
+          <label htmlFor="peluqu-pro-name">{t("pro.name")}</label>
+          <input id="peluqu-pro-name" value={form.nombreServicio} onChange={(e) => setForm({ ...form, nombreServicio: e.target.value })} required />
           <div className="row">
             <div style={{ flex: 1 }}>
-              <label>{t("pro.price")}</label>
-              <input type="number" step="0.01" min="0" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} required />
+              <label htmlFor="peluqu-pro-price">{t("pro.price")}</label>
+              <input id="peluqu-pro-price" type="number" step="0.01" min="0" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} required />
             </div>
             <div style={{ flex: 1 }}>
-              <label>{t("pro.currency")}</label>
-              <select value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}>
+              <label htmlFor="peluqu-pro-currency">{t("pro.currency")}</label>
+              <select id="peluqu-pro-currency" value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}>
                 {MONEDAS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label>{t("pro.duration")}</label>
-              <input type="number" min="1" value={form.duracionMinutos} onChange={(e) => setForm({ ...form, duracionMinutos: e.target.value })} required />
+              <label htmlFor="peluqu-pro-duration">{t("pro.duration")}</label>
+              <input id="peluqu-pro-duration" type="number" min="1" value={form.duracionMinutos} onChange={(e) => setForm({ ...form, duracionMinutos: e.target.value })} required />
             </div>
           </div>
           {error && <p className="error">{error}</p>}
@@ -374,6 +376,7 @@ interface CitaAgenda {
 function ValidarCodigo({ onValidado }: { onValidado: () => void }) {
   const { t } = useT();
   const [codigo, setCodigo] = useState("");
+  const [propina, setPropina] = useState("");
   const [cargando, setCargando] = useState(false);
   const [ok, setOk] = useState("");
   const [error, setError] = useState("");
@@ -387,11 +390,16 @@ function ValidarCodigo({ onValidado }: { onValidado: () => void }) {
       const r = await api.post<{
         yaCompletada: boolean;
         reserva: { cliente: string; servicio: string; fecha: string; horaInicio: string };
-      }>("/reservas/validar", { codigo: codigo.trim() });
+      }>("/reservas/validar", {
+        codigo: codigo.trim(),
+        // La propina se entrega en mano: aquí solo se registra para los ingresos.
+        ...(propina ? { propina: Number(propina) } : {}),
+      });
       setOk(
         `${r.yaCompletada ? t("close.already") : t("close.validated")} — ${r.reserva.cliente} · ${r.reserva.servicio} · ${r.reserva.fecha} ${r.reserva.horaInicio}`,
       );
       setCodigo("");
+      setPropina("");
       onValidado();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("close.invalid"));
@@ -413,10 +421,21 @@ function ValidarCodigo({ onValidado }: { onValidado: () => void }) {
           maxLength={12}
           style={{ textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}
         />
+        <input
+          type="number"
+          min={0}
+          step="0.5"
+          value={propina}
+          onChange={(e) => setPropina(e.target.value)}
+          placeholder={t("tip.label")}
+          aria-label={t("tip.label")}
+          style={{ maxWidth: 140 }}
+        />
         <button className="primary" onClick={validar} disabled={cargando || codigo.trim().length < 4}>
           {cargando ? t("pay.processing") : t("close.validate")}
         </button>
       </div>
+      <p className="small muted">{t("tip.help")}</p>
       {ok && <p className="success small">{ok}</p>}
       {error && <p className="error small">{error}</p>}
     </div>
@@ -425,7 +444,11 @@ function ValidarCodigo({ onValidado }: { onValidado: () => void }) {
 
 function Agenda() {
   const { t } = useT();
+  const { usuario } = useAuth();
+  const miId = usuario?.id ?? 0;
   const [reservas, setReservas] = useState<CitaAgenda[]>([]);
+  // Día cuya cola de espera se consulta: por defecto hoy.
+  const [diaCola] = useState(() => new Date().toISOString().slice(0, 10));
   const [zona, setZona] = useState("");
   const [cancelando, setCancelando] = useState<number | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -482,6 +505,9 @@ function Agenda() {
     <div style={{ display: "grid", gap: 16 }}>
       <ValidarCodigo onValidado={cargar} />
 
+      {/* Quién quería hueco y no lo encontró: demanda real, no intuición. */}
+      {miId > 0 && <ColaEspera peluqueroId={miId} fecha={diaCola} />}
+
       <div className="card">
         <div className="row spread">
           <h2>{t("pro.upcomingAppts")}</h2>
@@ -534,8 +560,8 @@ function Agenda() {
 
             {cancelando === r.id && (
               <div className="card" style={{ marginTop: 8 }}>
-                <label>{t("close.cancelReason")}</label>
-                <input value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200} />
+                <label htmlFor="peluqu-close-cancelreason">{t("close.cancelReason")}</label>
+                <input id="peluqu-close-cancelreason" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200} />
                 <p className="small warn">{t("close.cancelConfirm")}</p>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="primary small" onClick={() => cancelarNegocio(r.id)}>

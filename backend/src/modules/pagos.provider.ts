@@ -158,7 +158,10 @@ class StripeProvider implements PaymentProvider {
 // Limitación conocida: PayPal no tiene equivalente al "destination charge" de Stripe
 // Connect, así que el reparto de la fianza con el negocio no se enruta automáticamente
 // (el cobro entra íntegro en la cuenta de la plataforma y se liquida aparte).
-class PayPalProvider implements PaymentProvider {
+// Exportada para poder probarla con la API de PayPal simulada: sin credenciales
+// de sandbox es la única forma de ejercitar oauth, crear, capturar, reembolsar y
+// la verificación de firma de principio a fin.
+export class PayPalProvider implements PaymentProvider {
   private base: string;
   private token: { valor: string; expira: number } | null = null;
 

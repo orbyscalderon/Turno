@@ -15,7 +15,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return res.status(400).json({
       error: "Datos inválidos",
       code: "VALIDATION_ERROR",
-      detalles: err.errors.map((e) => ({ campo: e.path.join("."), mensaje: e.message })),
+      // Zod 4 renombró .errors a .issues (.errors se eliminó).
+      detalles: err.issues.map((i) => ({ campo: i.path.join("."), mensaje: i.message })),
     });
   }
 

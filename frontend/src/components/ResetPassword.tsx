@@ -27,8 +27,8 @@ export function ResetPassword({ token }: { token: string }) {
         <h1>{t("reset.title")}</h1>
         {!listo ? (
           <form onSubmit={enviar}>
-            <label>{t("reset.prompt")}</label>
-            <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <label htmlFor="resetp-reset-prompt">{t("reset.prompt")}</label>
+            <input id="resetp-reset-prompt" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
             {error && <p className="error">{error}</p>}
             <button className="primary" style={{ width: "100%", marginTop: 12 }}>{t("common.save")}</button>
           </form>

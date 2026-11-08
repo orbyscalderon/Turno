@@ -5,8 +5,11 @@ import { Stars } from "./Stars";
 import { useT } from "../i18n";
 import { navegar } from "../router";
 import { Empty, SkeletonCards } from "./Ui";
+import { ApuntarseEspera, MisEsperas } from "./ListaEspera";
+import { MisBonos } from "./Bonos";
+import { evento } from "../analitica";
 
-type Tab = "reservar" | "historial";
+type Tab = "reservar" | "historial" | "bonos";
 
 export function ClienteView() {
   const { t } = useT();
@@ -20,8 +23,20 @@ export function ClienteView() {
         <button className={`tab ${tab === "historial" ? "active" : ""}`} onClick={() => setTab("historial")}>
           {t("client.tabHistory")}
         </button>
+        <button className={`tab ${tab === "bonos" ? "active" : ""}`} onClick={() => setTab("bonos")}>
+          {t("bono.mine")}
+        </button>
       </div>
-      {tab === "reservar" ? <FlujoReserva onReservado={() => setTab("historial")} /> : <Historial />}
+      {tab === "reservar" ? (
+        <FlujoReserva onReservado={() => setTab("historial")} />
+      ) : tab === "historial" ? (
+        <Historial />
+      ) : (
+        <>
+          <MisBonos />
+          <MisEsperas />
+        </>
+      )}
     </div>
   );
 }
@@ -142,6 +157,27 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
     setServicios(r.servicios);
   }
 
+  // ¿Tiene el cliente un bono utilizable para este servicio? Si lo tiene, la
+  // reserva no cobra fianza, y hay que decírselo ANTES de pulsar el botón.
+  const [bonoAplicable, setBonoAplicable] = useState<{ restantes: number } | null>(null);
+  useEffect(() => {
+    if (!servicio) {
+      setBonoAplicable(null);
+      return;
+    }
+    api
+      .get<{ bonos: { servicio: { id: number }; restantes: number; caducado: boolean; agotado: boolean }[] }>(
+        "/bonos/mios",
+      )
+      .then((r) => {
+        const util = r.bonos.find(
+          (b) => b.servicio.id === servicio.id && !b.caducado && !b.agotado,
+        );
+        setBonoAplicable(util ? { restantes: util.restantes } : null);
+      })
+      .catch(() => setBonoAplicable(null));
+  }, [servicio]);
+
   async function cargarSlots(s: Servicio, f: string) {
     if (!peluquero) return;
     setSlot(null);
@@ -150,6 +186,7 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
         `/reservas/slots?peluqueroId=${peluquero.id}&servicioId=${s.id}&fecha=${f}`,
       );
       setSlots(r.slots);
+      evento("slots_vistos", { libres: r.slots.length, fecha: f });
     } catch {
       setSlots([]);
     }
@@ -187,11 +224,21 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
         fecha,
         horaInicio: slot.inicio,
       });
+      evento("reserva_iniciada", { conBono: Boolean(creada.bono) });
+      // Pagada con bono: la API no devuelve datos de pago porque no hay nada
+      // que cobrar. La reserva ya está confirmada.
+      if (!creada.pago) {
+        evento("pago_completado", { via: "bono" });
+        setSlot(null);
+        onReservado();
+        return;
+      }
       setPendientePago({
         reservaId: creada.reserva.id,
         pago: creada.pago,
         expiraPagoEn: creada.reserva.expiraPagoEn,
       });
+      evento("pago_abierto", { provider: creada.pago.provider });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo completar la reserva");
       // Recargar slots por si el horario fue tomado.
@@ -397,12 +444,18 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
             <button className="ghost small" onClick={() => { setServicio(null); setSlots([]); setSlot(null); }}>{t("common.change")}</button>
           </div>
 
-          <label>{t("client.date")}</label>
-          <input type="date" value={fecha} min={fechaHoy()} onChange={(e) => cambiarFecha(e.target.value)} />
+          <label htmlFor="client-client-date">{t("client.date")}</label>
+          <input id="client-client-date" type="date" value={fecha} min={fechaHoy()} onChange={(e) => cambiarFecha(e.target.value)} />
 
           <label style={{ marginTop: 16 }}>{t("client.availableSlots")}</label>
           {slots.length === 0 ? (
-            <p className="muted small">{t("client.noSlots")}</p>
+            <>
+              <p className="muted small">{t("client.noSlots")}</p>
+              {/* Un día completo ya no es un cliente perdido. */}
+              {peluquero && (
+                <ApuntarseEspera peluqueroId={peluquero.id} servicioId={servicio.id} fecha={fecha} />
+              )}
+            </>
           ) : (
             <div className="grid grid-slots">
               {slots.map((s) => (
@@ -438,16 +491,24 @@ function FlujoReserva({ onReservado }: { onReservado: () => void }) {
                 {servicio.nombreServicio} {t("client.with")} {peluquero?.nombre}<br />
                 {fecha} · {slot.inicio}–{slot.fin}
               </p>
-              <div className="row spread">
-                <span className="muted small">{t("client.deposit")}</span>
-                <strong>${montoFianza.toFixed(2)} USD</strong>
-              </div>
-              {error && <p className="error">{error}</p>}
+              {bonoAplicable ? (
+                <p className="success small">{t("bono.willUse")}</p>
+              ) : (
+                <div className="row spread">
+                  <span className="muted small">{t("client.deposit")}</span>
+                  <strong>${montoFianza.toFixed(2)} USD</strong>
+                </div>
+              )}
+              {error && <p className="error" role="alert">{error}</p>}
               <button className="primary" style={{ width: "100%", marginTop: 12 }} disabled={procesando} onClick={reservar}>
-                {procesando ? t("client.processing") : `${t("client.payAndBook")} · $${montoFianza.toFixed(2)}`}
+                {procesando
+                  ? t("client.processing")
+                  : bonoAplicable
+                    ? t("client.bookWithPackage")
+                    : `${t("client.payAndBook")} · $${montoFianza.toFixed(2)}`}
               </button>
               <p className="muted small" style={{ marginTop: 8 }}>
-                {t("client.depositNote")}
+                {bonoAplicable ? t("bono.remaining", { n: bonoAplicable.restantes, total: bonoAplicable.restantes }) : t("client.depositNote")}
               </p>
             </div>
           )}
@@ -559,8 +620,8 @@ function Reprogramar({ reserva, onHecho }: { reserva: Reserva; onHecho: () => vo
 
   return (
     <div className="card" style={{ background: "var(--surface-2)", marginTop: 10 }}>
-      <label>{t("history.newDate")}</label>
-      <input type="date" value={fecha} min={fechaHoy()} onChange={(e) => setFecha(e.target.value)} />
+      <label htmlFor="client-history-newdate">{t("history.newDate")}</label>
+      <input id="client-history-newdate" type="date" value={fecha} min={fechaHoy()} onChange={(e) => setFecha(e.target.value)} />
       {error && <p className="error">{error}</p>}
       <div className="grid grid-slots" style={{ marginTop: 8 }}>
         {slots.length === 0 && <span className="muted small">{t("client.noSlots")}</span>}

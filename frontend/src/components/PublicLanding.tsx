@@ -111,7 +111,7 @@ export function PublicLanding({ onReservar }: { onReservar: () => void }) {
       </div>
 
       {/* Categorías */}
-      <div className="cat-scroll">
+      <div className="cat-scroll" tabIndex={0} role="group" aria-label={t("pub.categories")}>
         <div className={`cat-chip ${categoria === "" ? "on" : ""}`} onClick={() => setCategoria("")}>
           <span className="cat-emoji">🗂️</span>
           <span className="cat-name">{t("mkt.all")}</span>

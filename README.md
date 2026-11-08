@@ -60,7 +60,9 @@ Comprobaciones de calidad:
 ```bash
 npm run lint                  # ESLint
 npx tsc --noEmit              # tipos
-npm test                      # 63 tests (unitarios + integración + E2E de API)
+npm test                      # 139 tests (unitarios + integración + API)
+npm run typecheck             # tipos de src, tests y scripts
+npm run paypal:sandbox        # comprueba PayPal contra la API real de sandbox
 ```
 
 Documentación de la API: **http://localhost:4000/api/docs** (OpenAPI en `/api/openapi.yaml`).
@@ -156,20 +158,63 @@ cancela las reservas que sigan en `pendiente` tras el vencimiento, liberando el 
 - **Recuperación de contraseña** (token con expiración; el enlace se registra en consola en dev).
 - **Paginación** en el listado público de negocios.
 - **Hardening**: helmet, rate-limiting (global + auth), validación estricta de configuración.
-- **Tests** (`npm test` en `backend/`): 16 aserciones sobre la lógica crítica.
+- **Lista de espera**: si un día está completo, el cliente se apunta y recibe un email
+  automático cuando alguien cancela. Antes, un día completo era un cliente perdido.
+- **Bonos y paquetes de sesiones**: el negocio los cobra en el local y aquí solo se llevan
+  las sesiones; al reservar se descuenta una y el cliente no paga fianza. Si cancela a
+  tiempo, la sesión se le devuelve.
+- **Propinas**: se anotan al cerrar la cita y cuentan en los ingresos del profesional.
+- **Segundo factor (TOTP)** para cualquier cuenta, obligatorio para superadmin con
+  `EXIGIR_2FA_SUPERADMIN=true`. Implementado con `node:crypto` (RFC 6238, sin dependencias),
+  secretos cifrados con AES-256-GCM y 10 códigos de recuperación de un solo uso.
+- **Analítica de producto propia**: eventos del embudo guardados en la propia base de datos
+  (nada va a terceros) y panel de embudo en superadmin, con la conversión y el abandono de
+  cada paso.
+- **Impuestos de la suscripción** con Stripe Tax (`STRIPE_TAX_ACTIVO=true`).
+- **Accesibilidad**: WCAG 2.1 A/AA verificado con axe en el CI, navegación completa por
+  teclado y campos de formulario asociados a su etiqueta.
+- **Tests**: 139 en el backend, 42 unitarios en el frontend y 15 E2E de navegador
+  (incluida la auditoría de accesibilidad). Todos en el CI.
 - **App móvil** Expo en `mobile/` (ver su README).
 
-## Configurar Stripe (opcional, producción)
+## Configurar Stripe (producción)
 
 ```env
 PAYMENT_PROVIDER=stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...      # de `stripe listen` o del dashboard
-STRIPE_PRICE_SAAS=price_...          # precio recurrente del plan mensual
+STRIPE_SECRET_KEY=sk_live_...
+# Stripe genera un secreto DISTINTO por endpoint de webhook:
+STRIPE_WEBHOOK_SECRET_PAGOS=whsec_...
+STRIPE_WEBHOOK_SECRET_SUSCRIPCION=whsec_...
+# Un price por plan e intervalo:
+STRIPE_PRICE_BASICO_MENSUAL=price_...
+STRIPE_PRICE_BASICO_ANUAL=price_...
+STRIPE_PRICE_PRO_MENSUAL=price_...
+STRIPE_PRICE_PRO_ANUAL=price_...
+# Y en el frontend (sin esto el cliente no ve el formulario de tarjeta):
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ```
 Webhooks a registrar: fianza → `POST /api/reservas/webhook/pago`; suscripción →
-`POST /api/suscripcion/webhook` (eventos `payment_intent.*`, `invoice.paid`,
-`customer.subscription.deleted`).
+`POST /api/suscripcion/webhook`. El detalle de eventos, Billing Portal, Connect e impuestos
+está en [GO-LIVE.md](GO-LIVE.md).
+
+## Operación
+
+```bash
+# Backup con rotación (conserva los 14 últimos)
+DATABASE_URL=postgresql://... ./scripts/backup.sh ./backups
+
+# Ensayo de restauración: restaura en una base temporal y comprueba el esquema
+DATABASE_URL=postgresql://... ./scripts/verificar-backup.sh
+
+# Restauración real
+./scripts/restaurar.sh backups/turno_AAAAMMDD_HHMMSS.sql.gz "postgresql://..."
+
+# Prueba de carga de los endpoints públicos (p50/p95/p99 y req/s)
+CONCURRENCIA=50 DURACION=10 node scripts/carga.mjs
+```
+
+La sonda de caída (`.github/workflows/uptime.yml`) llama a `/api/health` cada 10 minutos;
+se activa definiendo la variable de repositorio `API_URL`.
 
 ## Endpoints principales
 

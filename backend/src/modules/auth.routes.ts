@@ -4,7 +4,14 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { prisma } from "../lib/prisma.js";
-import { hashPassword, verifyPassword, signToken } from "../lib/auth.js";
+import {
+  hashPassword,
+  verifyPassword,
+  signToken,
+  firmarDesafio2fa,
+  verificarDesafio2fa,
+} from "../lib/auth.js";
+import { comprobarSegundoFactor } from "./dosfactores.routes.js";
 import { BadRequest, Forbidden, Unauthorized } from "../lib/errors.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -27,6 +34,28 @@ async function emitirSesion(usuario: { id: number; rol: Rol; email: string }) {
   const token = signToken({ sub: usuario.id, rol: usuario.rol, email: usuario.email });
   const refreshToken = await emitirRefreshToken(usuario.id);
   return { token, refreshToken };
+}
+
+// Respuesta estándar de "sesión abierta". Un superadmin sin segundo factor
+// recibe `debeActivar2fa`: puede entrar (si no, no podría ni configurarlo),
+// pero el panel de superadmin le queda cerrado hasta que lo active.
+function respuestaSesion(
+  usuario: { id: number; nombre: string; email: string; rol: Rol; emailVerificadoEn: Date | null; totpActivadoEn?: Date | null },
+  sesion: { token: string; refreshToken: string },
+) {
+  return {
+    usuario: {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+      emailVerificadoEn: usuario.emailVerificadoEn,
+      dosFactoresActivo: Boolean(usuario.totpActivadoEn),
+    },
+    debeActivar2fa:
+      usuario.rol === "superadmin" && env.exigir2faSuperadmin && !usuario.totpActivadoEn,
+    ...sesion,
+  };
 }
 
 async function crearYEnviarVerificacion(usuarioId: number, nombre: string, email: string) {
@@ -95,14 +124,39 @@ authRouter.post(
     if (!ok) throw Unauthorized("Credenciales inválidas");
     if (usuario.bloqueado) throw Forbidden("Cuenta suspendida. Contacta con soporte.");
 
+    // Con segundo factor activo la contraseña NO abre sesión: devuelve un
+    // desafío de 5 minutos que se canjea en /2fa/verificar.
+    if (usuario.totpActivadoEn) {
+      return res.json({ requiere2fa: true, desafio: firmarDesafio2fa(usuario.id) });
+    }
+
     const sesion = await emitirSesion(usuario);
-    res.json({
-      usuario: {
-        id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
-        emailVerificadoEn: usuario.emailVerificadoEn,
-      },
-      ...sesion,
-    });
+    res.json(respuestaSesion(usuario, sesion));
+  }),
+);
+
+// ---------- Segundo paso del login: canjear el desafío por la sesión ----------
+const verificar2faSchema = z.object({
+  desafio: z.string().min(10),
+  codigo: z.string().trim().min(6).max(12),
+});
+
+authRouter.post(
+  "/2fa/verificar",
+  asyncHandler(async (req, res) => {
+    const { desafio, codigo } = verificar2faSchema.parse(req.body);
+
+    const usuarioId = verificarDesafio2fa(desafio);
+    if (!usuarioId) throw Unauthorized("El desafío ha caducado. Vuelve a iniciar sesión.");
+
+    const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario || usuario.bloqueado) throw Unauthorized("Sesión no válida");
+
+    const resultado = await comprobarSegundoFactor(usuarioId, codigo);
+    if (!resultado) throw Unauthorized("Código incorrecto");
+
+    const sesion = await emitirSesion(usuario);
+    res.json({ ...respuestaSesion(usuario, sesion), via: resultado.via });
   }),
 );
 
@@ -158,14 +212,13 @@ authRouter.post(
       usuario = await prisma.usuario.update({ where: { id: usuario.id }, data: { fotoUrl } });
     }
 
+    // Google verifica quién eres, no reemplaza al segundo factor de esta cuenta.
+    if (usuario.totpActivadoEn) {
+      return res.json({ requiere2fa: true, desafio: firmarDesafio2fa(usuario.id) });
+    }
+
     const sesion = await emitirSesion(usuario);
-    res.json({
-      usuario: {
-        id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
-        emailVerificadoEn: usuario.emailVerificadoEn,
-      },
-      ...sesion,
-    });
+    res.json(respuestaSesion(usuario, sesion));
   }),
 );
 

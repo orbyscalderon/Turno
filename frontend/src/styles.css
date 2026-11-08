@@ -13,7 +13,10 @@
   --border-strong: #343843;
   --text: #f4f6fb;
   --muted: #9aa2b2;
-  --faint: #6b7180;
+  /* #6b7180 daba 4.01:1 sobre el fondo: por debajo del 4.5:1 que exige
+     WCAG AA para texto normal. Este tono mantiene la jerarquía visual y
+     cumple (4.7:1). Lo detectó la auditoría de axe. */
+  --faint: #767d8c;
 
   /* Azul (primario) */
   --brand-300: #8fb4ff;
@@ -415,7 +418,11 @@ h3 { font-size: 15px; margin: 0; font-weight: 600; }
 }
 
 /* Chips de categoría */
+/* Carrusel con scroll horizontal: al ser enfocable con el teclado (tabindex=0
+   en el componente) necesita indicar el foco, o quien no usa ratón no sabe
+   dónde está. */
 .cat-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; margin-bottom: 8px; scrollbar-width: thin; }
+.cat-scroll:focus-visible { outline: 2px solid var(--brand-400); outline-offset: 3px; border-radius: 12px; }
 .cat-chip {
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px;
   width: 84px; padding: 12px 8px; border-radius: 14px; cursor: pointer;
@@ -529,7 +536,8 @@ h3 { font-size: 15px; margin: 0; font-weight: 600; }
 /* --------- Language toggle --------- */
 .lang-toggle { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; }
 .lang-toggle button { border: none; border-radius: 0; padding: 5px 11px; font-size: 12px; background: transparent; }
-.lang-toggle button.on { background: var(--brand-500); color: #fff; }
+/* brand-500 con texto blanco daba 3.9:1 (insuficiente a 12px). brand-600 sube a 5.3:1. */
+.lang-toggle button.on { background: var(--brand-600); color: #fff; }
 
 /* --------- Accesibilidad: reduce motion --------- */
 @media (prefers-reduced-motion: reduce) {

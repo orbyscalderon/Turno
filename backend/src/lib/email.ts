@@ -233,3 +233,52 @@ export function emailSuscripcionVencida(datos: { nombre: string; negocio: string
     ),
   };
 }
+
+/**
+ * Aviso de que se ha liberado un hueco a alguien de la lista de espera.
+ * El hueco NO se reserva: se avisa a varios y lo coge el primero que entra.
+ */
+export function emailHuecoLibre(datos: {
+  nombre: string;
+  negocio: string;
+  profesional: string;
+  servicio: string;
+  fecha: string;
+  hora: string;
+  url: string;
+}) {
+  return {
+    subject: `Se ha liberado un hueco — ${datos.fecha} ${datos.hora}`,
+    html: layout(
+      "¡Hay un hueco libre! 🎉",
+      `<p>Hola ${esc(datos.nombre)}, estabas en la lista de espera y acaba de quedar
+       libre un hueco en <b>${esc(datos.negocio)}</b>:</p>
+       <p><b>${esc(datos.servicio)}</b> con ${esc(datos.profesional)}<br/>
+       ${esc(datos.fecha)} a las ${esc(datos.hora)}</p>
+       <p>No está reservado para ti: lo coge quien reserve primero.</p>
+       ${boton(datos.url, "Reservar este hueco")}`,
+    ),
+  };
+}
+
+/** Confirmación de que el negocio ha registrado un bono de sesiones a su nombre. */
+export function emailBonoEmitido(datos: {
+  nombre: string;
+  negocio: string;
+  paquete: string;
+  sesiones: number;
+  caduca: string | null;
+  url: string;
+}) {
+  return {
+    subject: `Tu bono de ${datos.sesiones} sesiones en ${datos.negocio}`,
+    html: layout(
+      "Bono activado 🎟️",
+      `<p>Hola ${esc(datos.nombre)}, <b>${esc(datos.negocio)}</b> ha registrado a tu nombre
+       el bono <b>${esc(datos.paquete)}</b> con <b>${datos.sesiones}</b> sesiones.</p>
+       <p>Al reservar se descuenta una sesión automáticamente y no tendrás que pagar fianza.</p>
+       ${datos.caduca ? `<p>Caduca el <b>${esc(datos.caduca)}</b>.</p>` : ""}
+       ${boton(datos.url, "Ver mis bonos")}`,
+    ),
+  };
+}

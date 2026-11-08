@@ -14,13 +14,18 @@ export default defineConfig({
   server: { port: 5173, proxy },
   preview: { port: 5173, proxy },
   build: {
-    // Trozos separados para que el bundle de la app no arrastre todo de golpe.
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ["react", "react-dom"],
-          stripe: ["@stripe/stripe-js", "@stripe/react-stripe-js"],
-          mapa: ["leaflet"],
+        // Trozos separados para que el bundle de la app no arrastre todo de golpe.
+        // Vite 8 empaqueta con Rolldown, que sustituye el `manualChunks` de Rollup
+        // por `codeSplitting.groups` (se agrupa por ruta del módulo, no por nombre
+        // de paquete, así que las dependencias internas caen en el trozo correcto).
+        codeSplitting: {
+          groups: [
+            { name: "react", test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: "stripe", test: /[\\/]node_modules[\\/]@stripe[\\/]/ },
+            { name: "mapa", test: /[\\/]node_modules[\\/]leaflet[\\/]/ },
+          ],
         },
       },
     },

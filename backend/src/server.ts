@@ -6,6 +6,7 @@ import { iniciarMonitor, cerrarMonitor, reportError } from "./lib/monitor.js";
 import { iniciarJobExpiracion, detenerJobExpiracion } from "./jobs/expirarReservas.js";
 import { iniciarJobRecordatorios, detenerJobRecordatorios } from "./jobs/recordatorios.js";
 import { iniciarJobSuscripciones, detenerJobSuscripciones } from "./jobs/vencerSuscripciones.js";
+import { iniciarJobLimpieza, detenerJobLimpieza } from "./jobs/limpieza.js";
 
 // Monitorización antes que nada, para capturar también fallos de arranque.
 iniciarMonitor();
@@ -22,6 +23,7 @@ const server = app.listen(env.port, () => {
 iniciarJobExpiracion(); // libera slots de reservas impagas
 iniciarJobRecordatorios(); // recordatorios de 24 h y de pocas horas antes
 iniciarJobSuscripciones(); // vence pruebas y suscripciones caducadas
+iniciarJobLimpieza(); // purga eventos, webhooks y tokens caducados
 
 // Cualquier fallo no capturado queda registrado (y en Sentry si está configurado).
 process.on("unhandledRejection", (razon) => reportError(razon, { tipo: "unhandledRejection" }));
@@ -41,6 +43,7 @@ async function shutdown(senal: string, codigo = 0) {
   detenerJobExpiracion();
   detenerJobRecordatorios();
   detenerJobSuscripciones();
+  detenerJobLimpieza();
 
   // Red de seguridad: si algo se queda colgado, salimos de todas formas.
   const forzar = setTimeout(() => {

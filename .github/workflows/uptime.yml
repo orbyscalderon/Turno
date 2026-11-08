@@ -1,0 +1,61 @@
+name: Sonda de disponibilidad
+
+# Vigila que la API siga viva. Sentry solo informa de errores CUANDO el proceso
+# vive: si el contenedor muere, la base se desconecta o el despliegue deja la API
+# caída, Sentry no dice nada y te enteras porque un negocio te escribe.
+#
+# Esta sonda llama a /api/health cada 10 minutos desde fuera. Si falla, el
+# workflow falla y GitHub manda un email al dueño del repositorio (es el aviso
+# gratis que ya tienes; para SMS o Slack hace falta un servicio de pago).
+#
+# Requisitos:
+#   - Variable del repositorio `API_URL` (Settings → Variables → Actions),
+#     p. ej. https://turno-api.onrender.com
+#   Sin ella el workflow se salta solo, para no fallar en un repo recién clonado.
+
+on:
+  schedule:
+    # Cada 10 minutos. El cron de GitHub no es puntual al segundo, pero para
+    # detectar una caída sostenida sobra.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+# Una sola sonda a la vez: si una tarda, no se acumulan.
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  sonda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comprobar la API
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::notice::Define la variable API_URL del repositorio para activar la sonda."
+            exit 0
+          fi
+
+          url="${API_URL%/}/api/health"
+          echo "Sondeando $url"
+
+          # Tres intentos espaciados: un fallo aislado puede ser un reinicio o
+          # un hipo de red, y no merece un email a las 4 de la mañana.
+          for intento in 1 2 3; do
+            codigo=$(curl -s -o /tmp/salud.json -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            cuerpo=$(cat /tmp/salud.json 2>/dev/null || true)
+            echo "intento $intento -> HTTP $codigo $cuerpo"
+
+            if [ "$codigo" = "200" ] && echo "$cuerpo" | grep -q '"db":"ok"'; then
+              echo "✅ API y base de datos respondiendo"
+              exit 0
+            fi
+            [ "$intento" -lt 3 ] && sleep 20
+          done
+
+          echo "::error::La API no responde correctamente tras 3 intentos (último: HTTP $codigo)"
+          echo "Último cuerpo: $cuerpo"
+          exit 1
